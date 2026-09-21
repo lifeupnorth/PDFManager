@@ -26,6 +26,33 @@ namespace PDFManager
             => throw new NotSupportedException();
     }
 
+    /// <summary>
+    /// Shows an element when a string is non-empty (or, with VisibleWhenEmpty, when it is empty).
+    /// Used to switch a tool's workspace between its "pick a file" and "file selected" states.
+    /// </summary>
+    public class StringVisibilityConverter : System.Windows.Data.IValueConverter
+    {
+        public bool VisibleWhenEmpty { get; set; }
+
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            bool isEmpty = string.IsNullOrWhiteSpace(value?.ToString());
+            return isEmpty == VisibleWhenEmpty ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    public class InverseBoolToVisibilityConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            => value is true ? Visibility.Collapsed : Visibility.Visible;
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
     public partial class MainWindow : Window
     {
         public MainWindow()
@@ -34,6 +61,47 @@ namespace PDFManager
             lblMergeOutput.Content = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Merged File.pdf");
             ((INotifyCollectionChanged)lstMergeFiles.Items).CollectionChanged += (s, e) => UpdateMergeButtonStates();
             lstMergeFiles.SelectionChanged += (s, e) => UpdateMergeButtonStates();
+        }
+
+        // Ask DWM for a dark title bar so the window chrome matches the dark theme.
+        // Silently ignored on Windows versions that do not support the attribute.
+        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            try
+            {
+                const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+                int enabled = 1;
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref enabled, sizeof(int));
+            }
+            catch { }
+        }
+
+        // Navigation: the left sidebar items and the home-screen tool cards carry the
+        // index of the view they open in their Tag. The sidebar item is the source of
+        // truth, so opening a tool from a card just checks the matching sidebar item.
+        private void Nav_Checked(object sender, RoutedEventArgs e)
+        {
+            if (tabControl == null) return; // fired while InitializeComponent is still running
+            if (sender is FrameworkElement fe && int.TryParse(fe.Tag?.ToString(), out int index))
+                tabControl.SelectedIndex = index;
+        }
+
+        private void OpenTool_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && int.TryParse(fe.Tag?.ToString(), out int index))
+                NavigateTo(index);
+        }
+
+        private void NavigateTo(int index)
+        {
+            var navItems = new[] { navHome, navSplit, navMerge, navRotate };
+            if (index >= 0 && index < navItems.Length)
+                navItems[index].IsChecked = true;
         }
 
         private void UpdateMergeButtonStates()
@@ -101,7 +169,7 @@ namespace PDFManager
             finally
             {
                 btnRunSplit.IsEnabled = true;
-                btnRunSplit.Content = "Split";
+                btnRunSplit.Content = "Split PDF";
             }
         }
 
@@ -206,7 +274,7 @@ namespace PDFManager
             }
             finally
             {
-                btnRunMerge.Content = "Merge";
+                btnRunMerge.Content = "Merge PDF";
                 UpdateMergeButtonStates();
             }
         }
@@ -441,7 +509,7 @@ namespace PDFManager
             finally
             {
                 btnRunRotate.IsEnabled = true;
-                btnRunRotate.Content = "Rotate";
+                btnRunRotate.Content = "Rotate PDF";
             }
         }
 
@@ -534,16 +602,16 @@ namespace PDFManager
                 using (var pdfDoc = new PdfDocument(new PdfReader(path)))
                 {
                     int pages = pdfDoc.GetNumberOfPages();
-                    lblRotatePageCount.Content = $"(document has {pages} page{(pages == 1 ? "" : "s")})";
+                    lblRotatePageCount.Content = $"Document has {pages} page{(pages == 1 ? "" : "s")}. Example: 1, 3, 5-7";
                 }
             }
             catch (iText.Kernel.Exceptions.BadPasswordException)
             {
-                lblRotatePageCount.Content = "(this PDF is password-protected and cannot be rotated)";
+                lblRotatePageCount.Content = "This PDF is password-protected and cannot be rotated.";
             }
             catch
             {
-                lblRotatePageCount.Content = "(unable to read page count)";
+                lblRotatePageCount.Content = "Unable to read the page count.";
             }
         }
 
@@ -597,17 +665,17 @@ namespace PDFManager
                 {
                     int pages = pdfDoc.GetNumberOfPages();
                     lblSplitPageCount.Content = pages > 1
-                        ? $"(enter 1 – {pages - 1}, document has {pages} pages)"
-                        : "(document has only 1 page and cannot be split)";
+                        ? $"Enter a page from 1 to {pages - 1}. The document has {pages} pages."
+                        : "This document has only 1 page and cannot be split.";
                 }
             }
             catch (iText.Kernel.Exceptions.BadPasswordException)
             {
-                lblSplitPageCount.Content = "(this PDF is password-protected and cannot be split)";
+                lblSplitPageCount.Content = "This PDF is password-protected and cannot be split.";
             }
             catch
             {
-                lblSplitPageCount.Content = "(unable to read page count)";
+                lblSplitPageCount.Content = "Unable to read the page count.";
             }
         }
     }
