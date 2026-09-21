@@ -332,28 +332,241 @@ namespace PDFManager
 
         private void splitTab_Drop(object sender, DragEventArgs e)
         {
+            if (TryGetSingleDroppedPdf(e, "split", out string file))
+                SetSplitSourceFile(file);
+        }
+
+        private static bool TryGetSingleDroppedPdf(DragEventArgs e, string action, out string file)
+        {
+            file = null;
             if (e.Data.GetData(DataFormats.FileDrop) is not string[] files || files.Length == 0)
-                return;
+                return false;
 
             if (files.Length > 1)
             {
-                MessageBox.Show("Please drop a single PDF file to split.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                MessageBox.Show($"Please drop a single PDF file to {action}.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
             }
 
             if (!string.Equals(Path.GetExtension(files[0]), ".pdf", StringComparison.OrdinalIgnoreCase))
             {
                 MessageBox.Show("Only PDF files are supported.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                return false;
             }
 
-            SetSplitSourceFile(files[0]);
+            file = files[0];
+            return true;
         }
 
         private void mergeTab_Drop(object sender, DragEventArgs e)
         {
             if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
                 AddMergeFiles(files);
+        }
+
+        private async void btnRunRotate_Click(object sender, RoutedEventArgs e)
+        {
+            string sourcePath = lblRotateFileSource.Content?.ToString();
+            if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+            {
+                MessageBox.Show("Please select a valid PDF file to rotate.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            string outputPath = lblRotateOutput.Content?.ToString();
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                MessageBox.Show("Please specify an output file path.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!Directory.Exists(Path.GetDirectoryName(outputPath)))
+            {
+                MessageBox.Show("The output directory does not exist.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (string.Equals(Path.GetFullPath(sourcePath), Path.GetFullPath(outputPath), StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("The output file cannot be the same as the source file. Please choose a different output path.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            string pageSpec = rbRotateAllPages.IsChecked == true ? null : txtRotatePages.Text;
+            if (pageSpec != null && string.IsNullOrWhiteSpace(pageSpec))
+            {
+                MessageBox.Show("Please enter the pages to rotate (for example: 1, 3, 5-7), or choose \"All pages\".", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            int degrees = rbRotate180.IsChecked == true ? 180
+                        : rbRotate270.IsChecked == true ? 270
+                        : 90;
+
+            if (File.Exists(outputPath))
+            {
+                var result = MessageBox.Show(
+                    $"\"{outputPath}\" already exists and will be overwritten.\n\nContinue?",
+                    "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (result != MessageBoxResult.Yes)
+                    return;
+            }
+
+            try
+            {
+                btnRunRotate.IsEnabled = false;
+                btnRunRotate.Content = "Rotating...";
+
+                await Task.Run(() => RotatePdfFile(sourcePath, outputPath, pageSpec, degrees));
+
+                var openFolder = MessageBox.Show("PDF rotated successfully!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (openFolder == MessageBoxResult.Yes)
+                    ShowInExplorer(outputPath);
+            }
+            catch (iText.Kernel.Exceptions.BadPasswordException)
+            {
+                MessageBox.Show("This PDF is password-protected and cannot be rotated.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch (iText.IO.Exceptions.IOException)
+            {
+                MessageBox.Show("This file is not a valid PDF or is corrupted.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch (Exception ex)
+            {
+                // The writer truncates the output file before rotation starts,
+                // so a failed run leaves behind a broken partial PDF
+                try { if (File.Exists(outputPath)) File.Delete(outputPath); } catch { }
+                MessageBox.Show($"Error rotating PDF: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                btnRunRotate.IsEnabled = true;
+                btnRunRotate.Content = "Rotate";
+            }
+        }
+
+        private static void RotatePdfFile(string sourcePath, string outputPath, string pageSpec, int degrees)
+        {
+            // Validate against the source before creating the writer, because
+            // PdfWriter truncates the output file as soon as it is constructed
+            int totalPages;
+            using (var probe = new PdfDocument(new PdfReader(sourcePath)))
+                totalPages = probe.GetNumberOfPages();
+
+            ISet<int> pagesToRotate = pageSpec == null
+                ? null
+                : ParsePageRanges(pageSpec, totalPages);
+
+            using (var pdfDoc = new PdfDocument(new PdfReader(sourcePath), new PdfWriter(outputPath)))
+            {
+                for (int i = 1; i <= totalPages; i++)
+                {
+                    if (pagesToRotate != null && !pagesToRotate.Contains(i))
+                        continue;
+
+                    PdfPage page = pdfDoc.GetPage(i);
+                    page.SetRotation((page.GetRotation() + degrees) % 360);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Parses a page specification such as "1, 3, 5-7" into a set of 1-based page numbers.
+        /// </summary>
+        private static ISet<int> ParsePageRanges(string spec, int totalPages)
+        {
+            var pages = new SortedSet<int>();
+
+            foreach (var rawToken in spec.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string token = rawToken.Trim();
+                int start, end;
+
+                int dash = token.IndexOf('-');
+                if (dash < 0)
+                {
+                    if (!int.TryParse(token, out start))
+                        throw new InvalidOperationException($"\"{token}\" is not a valid page number.");
+                    end = start;
+                }
+                else
+                {
+                    if (!int.TryParse(token.Substring(0, dash), out start) || !int.TryParse(token.Substring(dash + 1), out end))
+                        throw new InvalidOperationException($"\"{token}\" is not a valid page range. Use the form 5-7.");
+                    if (end < start)
+                        throw new InvalidOperationException($"\"{token}\" is not a valid page range: the end page is before the start page.");
+                }
+
+                if (start < 1 || end > totalPages)
+                    throw new InvalidOperationException($"Page range \"{token}\" is out of range. The document has {totalPages} pages.");
+
+                for (int p = start; p <= end; p++)
+                    pages.Add(p);
+            }
+
+            if (pages.Count == 0)
+                throw new InvalidOperationException("Please enter at least one page to rotate.");
+
+            return pages;
+        }
+
+        private void openFileRotate_Click(object sender, RoutedEventArgs e)
+        {
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "PDF Files (*.pdf)|*.pdf"
+            };
+
+            if (openFileDialog.ShowDialog() != true) return;
+
+            SetRotateSourceFile(openFileDialog.FileName);
+        }
+
+        private void SetRotateSourceFile(string path)
+        {
+            lblRotateFileSource.Content = path;
+            lblRotateOutput.Content = Path.Combine(
+                Path.GetDirectoryName(path),
+                Path.GetFileNameWithoutExtension(path) + "_rotated.pdf");
+
+            try
+            {
+                using (var pdfDoc = new PdfDocument(new PdfReader(path)))
+                {
+                    int pages = pdfDoc.GetNumberOfPages();
+                    lblRotatePageCount.Content = $"(document has {pages} page{(pages == 1 ? "" : "s")})";
+                }
+            }
+            catch (iText.Kernel.Exceptions.BadPasswordException)
+            {
+                lblRotatePageCount.Content = "(this PDF is password-protected and cannot be rotated)";
+            }
+            catch
+            {
+                lblRotatePageCount.Content = "(unable to read page count)";
+            }
+        }
+
+        private void btnBrowseRotateOutput_Click(object sender, RoutedEventArgs e)
+        {
+            string current = lblRotateOutput.Content?.ToString();
+            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "PDF Files (*.pdf)|*.pdf",
+                FileName = string.IsNullOrWhiteSpace(current) ? "Rotated File.pdf" : Path.GetFileName(current),
+                DefaultExt = ".pdf"
+            };
+            if (!string.IsNullOrWhiteSpace(current) && Directory.Exists(Path.GetDirectoryName(current)))
+                saveFileDialog.InitialDirectory = Path.GetDirectoryName(current);
+
+            if (saveFileDialog.ShowDialog() == true)
+                lblRotateOutput.Content = saveFileDialog.FileName;
+        }
+
+        private void rotateTab_Drop(object sender, DragEventArgs e)
+        {
+            if (TryGetSingleDroppedPdf(e, "rotate", out string file))
+                SetRotateSourceFile(file);
         }
 
         private static void ShowInExplorer(string filePath)
