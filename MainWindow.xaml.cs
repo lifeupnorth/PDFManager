@@ -340,6 +340,7 @@ namespace PDFManager
             var skipped = new List<string>();
 
             btnAddFileMerge.IsEnabled = false;
+            btnAddMoreMerge.IsEnabled = false;
             try
             {
                 // Reading each PDF is slow enough to freeze the window when several
@@ -367,10 +368,13 @@ namespace PDFManager
             finally
             {
                 btnAddFileMerge.IsEnabled = true;
+                btnAddMoreMerge.IsEnabled = true;
             }
 
+            var current = new HashSet<string>(lstMergeFiles.Items.Cast<string>(), StringComparer.OrdinalIgnoreCase);
             foreach (var file in accepted)
-                lstMergeFiles.Items.Add(file);
+                if (current.Add(file))
+                    lstMergeFiles.Items.Add(file);
 
             if (skipped.Any())
                 MessageBox.Show($"The following files were not added:\n{string.Join("\n", skipped)}", "Some Files Skipped", MessageBoxButton.OK, MessageBoxImage.Warning);
