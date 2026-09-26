@@ -225,7 +225,7 @@
 
                         <DockPanel Visibility="{Binding HasItems, ElementName=lstMergeFiles, Converter={StaticResource BoolToVisibility}}">
                             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                                <Button DockPanel.Dock="Right" Content="Add files" Style="{StaticResource SecondaryButton}" Click="btnAddFileMerge_Click"/>
+                                <Button x:Name="btnAddMoreMerge" DockPanel.Dock="Right" Content="Add files" Style="{StaticResource SecondaryButton}" Click="btnAddFileMerge_Click"/>
                                 <TextBlock Text="FILES TO MERGE" Style="{StaticResource SectionLabel}" Margin="0" VerticalAlignment="Center"/>
                             </DockPanel>
                             <TextBlock DockPanel.Dock="Bottom" Text="Files are merged top to bottom. Drop more PDFs anywhere on this page to add them." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,4,0,0"/>
