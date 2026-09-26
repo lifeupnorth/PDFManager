@@ -2,33 +2,36 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:PDFManager"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
+             mc:Ignorable="po"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
 
         <!-- Palette (dark theme) -->
-        <SolidColorBrush x:Key="AccentBrush" Color="#E5322D"/>
-        <SolidColorBrush x:Key="AccentHoverBrush" Color="#F0443F"/>
-        <SolidColorBrush x:Key="AccentPressedBrush" Color="#C4261F"/>
-        <SolidColorBrush x:Key="AccentDisabledBrush" Color="#6B2F2D"/>
-        <SolidColorBrush x:Key="AccentTintBrush" Color="#3A2424"/>
-        <SolidColorBrush x:Key="WindowBrush" Color="#1C1C1C"/>
-        <SolidColorBrush x:Key="SidebarBrush" Color="#1C1C1C"/>
-        <SolidColorBrush x:Key="PanelBrush" Color="#232323"/>
-        <SolidColorBrush x:Key="CardBrush" Color="#2A2A2A"/>
-        <SolidColorBrush x:Key="CardHoverBrush" Color="#343434"/>
-        <SolidColorBrush x:Key="InputBrush" Color="#1F1F1F"/>
-        <SolidColorBrush x:Key="BorderBrush" Color="#333333"/>
-        <SolidColorBrush x:Key="BorderStrongBrush" Color="#4A4A4A"/>
-        <SolidColorBrush x:Key="TextBrush" Color="#EAEAEA"/>
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A6A6AE"/>
-        <SolidColorBrush x:Key="TextMutedBrush" Color="#7C7C86"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#E5322D" po:Freeze="True"/>
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#F0443F" po:Freeze="True"/>
+        <SolidColorBrush x:Key="AccentPressedBrush" Color="#C4261F" po:Freeze="True"/>
+        <SolidColorBrush x:Key="AccentDisabledBrush" Color="#6B2F2D" po:Freeze="True"/>
+        <SolidColorBrush x:Key="AccentTintBrush" Color="#3A2424" po:Freeze="True"/>
+        <SolidColorBrush x:Key="WindowBrush" Color="#1C1C1C" po:Freeze="True"/>
+        <SolidColorBrush x:Key="SidebarBrush" Color="#1C1C1C" po:Freeze="True"/>
+        <SolidColorBrush x:Key="PanelBrush" Color="#232323" po:Freeze="True"/>
+        <SolidColorBrush x:Key="CardBrush" Color="#2A2A2A" po:Freeze="True"/>
+        <SolidColorBrush x:Key="CardHoverBrush" Color="#343434" po:Freeze="True"/>
+        <SolidColorBrush x:Key="InputBrush" Color="#1F1F1F" po:Freeze="True"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#333333" po:Freeze="True"/>
+        <SolidColorBrush x:Key="BorderStrongBrush" Color="#4A4A4A" po:Freeze="True"/>
+        <SolidColorBrush x:Key="TextBrush" Color="#EAEAEA" po:Freeze="True"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A6A6AE" po:Freeze="True"/>
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#7C7C86" po:Freeze="True"/>
 
         <!-- Icon tile tints, matching the reference app's category colours -->
-        <SolidColorBrush x:Key="OrganizeTileBrush" Color="#F4C3BF"/>
-        <SolidColorBrush x:Key="OrganizeIconBrush" Color="#C43F39"/>
-        <SolidColorBrush x:Key="EditTileBrush" Color="#DAD3F4"/>
-        <SolidColorBrush x:Key="EditIconBrush" Color="#6A53C4"/>
-        <SolidColorBrush x:Key="FileTileBrush" Color="#F4C3BF"/>
+        <SolidColorBrush x:Key="OrganizeTileBrush" Color="#F4C3BF" po:Freeze="True"/>
+        <SolidColorBrush x:Key="OrganizeIconBrush" Color="#C43F39" po:Freeze="True"/>
+        <SolidColorBrush x:Key="EditTileBrush" Color="#DAD3F4" po:Freeze="True"/>
+        <SolidColorBrush x:Key="EditIconBrush" Color="#6A53C4" po:Freeze="True"/>
+        <SolidColorBrush x:Key="FileTileBrush" Color="#F4C3BF" po:Freeze="True"/>
 
         <!-- Tab control with no tab strip: acts as a view switcher -->
         <Style x:Key="ViewSwitcher" TargetType="TabControl">

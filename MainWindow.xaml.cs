@@ -281,9 +281,12 @@ namespace PDFManager
 
         private void MergePdfFiles(string outputPath, List<string> sourceFiles)
         {
-            using (var resultDoc = new PdfDocument(new PdfWriter(outputPath)))
+            // Smart mode lets iText reuse identical objects (fonts, images, resource
+            // dictionaries) shared by the source documents instead of writing a copy per file
+            using (var resultDoc = new PdfDocument(new PdfWriter(outputPath, new WriterProperties().UseSmartMode())))
             {
                 var formCopier = new PdfPageFormCopier();
+                PdfOutline rootOutline = null;
                 int pageIndex = 1;
 
                 foreach (var filePath in sourceFiles)
@@ -295,7 +298,7 @@ namespace PDFManager
                             int numberOfPages = srcDoc.GetNumberOfPages();
                             srcDoc.CopyPagesTo(1, numberOfPages, resultDoc, formCopier);
 
-                            var rootOutline = resultDoc.GetOutlines(false);
+                            rootOutline ??= resultDoc.GetOutlines(false);
                             var outline = rootOutline.AddOutline(Path.GetFileNameWithoutExtension(filePath));
                             outline.AddDestination(PdfExplicitDestination.CreateFit(resultDoc.GetPage(pageIndex)));
 
@@ -314,7 +317,7 @@ namespace PDFManager
             }
         }
 
-        private void btnAddFileMerge_Click(object sender, RoutedEventArgs e)
+        private async void btnAddFileMerge_Click(object sender, RoutedEventArgs e)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -323,31 +326,51 @@ namespace PDFManager
             };
 
             if (openFileDialog.ShowDialog() == true)
-                AddMergeFiles(openFileDialog.FileNames);
+                await AddMergeFiles(openFileDialog.FileNames);
         }
 
-        private void AddMergeFiles(IEnumerable<string> files)
+        private async Task AddMergeFiles(IEnumerable<string> files)
         {
-            var skipped = new List<string>();
-            foreach (var file in files)
-            {
-                if (lstMergeFiles.Items.Cast<string>().Any(f => string.Equals(f, file, StringComparison.OrdinalIgnoreCase)))
-                    continue;
+            var existing = new HashSet<string>(lstMergeFiles.Items.Cast<string>(), StringComparer.OrdinalIgnoreCase);
+            var candidates = files.Where(existing.Add).ToList();
+            if (candidates.Count == 0)
+                return;
 
-                try
+            var accepted = new List<string>();
+            var skipped = new List<string>();
+
+            btnAddFileMerge.IsEnabled = false;
+            try
+            {
+                // Reading each PDF is slow enough to freeze the window when several
+                // large files are added at once, so validate them off the UI thread
+                await Task.Run(() =>
                 {
-                    using (new PdfDocument(new PdfReader(file))) { }
-                    lstMergeFiles.Items.Add(file);
-                }
-                catch (iText.Kernel.Exceptions.BadPasswordException)
-                {
-                    skipped.Add($"{Path.GetFileName(file)} (password-protected)");
-                }
-                catch
-                {
-                    skipped.Add($"{Path.GetFileName(file)} (not a valid PDF)");
-                }
+                    foreach (var file in candidates)
+                    {
+                        try
+                        {
+                            using (new PdfDocument(new PdfReader(file))) { }
+                            accepted.Add(file);
+                        }
+                        catch (iText.Kernel.Exceptions.BadPasswordException)
+                        {
+                            skipped.Add($"{Path.GetFileName(file)} (password-protected)");
+                        }
+                        catch
+                        {
+                            skipped.Add($"{Path.GetFileName(file)} (not a valid PDF)");
+                        }
+                    }
+                });
             }
+            finally
+            {
+                btnAddFileMerge.IsEnabled = true;
+            }
+
+            foreach (var file in accepted)
+                lstMergeFiles.Items.Add(file);
 
             if (skipped.Any())
                 MessageBox.Show($"The following files were not added:\n{string.Join("\n", skipped)}", "Some Files Skipped", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -355,8 +378,13 @@ namespace PDFManager
 
         private void btnRemoveFileMerge_Click(object sender, RoutedEventArgs e)
         {
-            while (lstMergeFiles.SelectedItems.Count > 0)
-                lstMergeFiles.Items.Remove(lstMergeFiles.SelectedItems[0]);
+            var selected = lstMergeFiles.SelectedItems.Cast<object>().ToHashSet();
+            if (selected.Count == 0) return;
+
+            var remaining = lstMergeFiles.Items.Cast<object>().Where(i => !selected.Contains(i)).ToList();
+            lstMergeFiles.Items.Clear();
+            foreach (var item in remaining)
+                lstMergeFiles.Items.Add(item);
         }
 
         private void btnBrowseMergeOutput_Click(object sender, RoutedEventArgs e)
@@ -398,10 +426,10 @@ namespace PDFManager
             e.Handled = true;
         }
 
-        private void splitTab_Drop(object sender, DragEventArgs e)
+        private async void splitTab_Drop(object sender, DragEventArgs e)
         {
             if (TryGetSingleDroppedPdf(e, "split", out string file))
-                SetSplitSourceFile(file);
+                await SetSplitSourceFile(file);
         }
 
         private static bool TryGetSingleDroppedPdf(DragEventArgs e, string action, out string file)
@@ -426,10 +454,10 @@ namespace PDFManager
             return true;
         }
 
-        private void mergeTab_Drop(object sender, DragEventArgs e)
+        private async void mergeTab_Drop(object sender, DragEventArgs e)
         {
             if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
-                AddMergeFiles(files);
+                await AddMergeFiles(files);
         }
 
         private async void btnRunRotate_Click(object sender, RoutedEventArgs e)
@@ -501,9 +529,6 @@ namespace PDFManager
             }
             catch (Exception ex)
             {
-                // The writer truncates the output file before rotation starts,
-                // so a failed run leaves behind a broken partial PDF
-                try { if (File.Exists(outputPath)) File.Delete(outputPath); } catch { }
                 MessageBox.Show($"Error rotating PDF: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -515,26 +540,33 @@ namespace PDFManager
 
         private static void RotatePdfFile(string sourcePath, string outputPath, string pageSpec, int degrees)
         {
-            // Validate against the source before creating the writer, because
-            // PdfWriter truncates the output file as soon as it is constructed
-            int totalPages;
-            using (var probe = new PdfDocument(new PdfReader(sourcePath)))
-                totalPages = probe.GetNumberOfPages();
-
-            ISet<int> pagesToRotate = pageSpec == null
-                ? null
-                : ParsePageRanges(pageSpec, totalPages);
-
-            using (var pdfDoc = new PdfDocument(new PdfReader(sourcePath), new PdfWriter(outputPath)))
+            // Rotating writes to a temporary file that replaces the output only on success,
+            // so the source is read once and a failed run leaves the output untouched
+            string tempPath = outputPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
             {
-                for (int i = 1; i <= totalPages; i++)
+                using (var pdfDoc = new PdfDocument(new PdfReader(sourcePath), new PdfWriter(tempPath)))
                 {
-                    if (pagesToRotate != null && !pagesToRotate.Contains(i))
-                        continue;
+                    int totalPages = pdfDoc.GetNumberOfPages();
+                    ISet<int> pagesToRotate = pageSpec == null
+                        ? null
+                        : ParsePageRanges(pageSpec, totalPages);
 
-                    PdfPage page = pdfDoc.GetPage(i);
-                    page.SetRotation((page.GetRotation() + degrees) % 360);
+                    for (int i = 1; i <= totalPages; i++)
+                    {
+                        if (pagesToRotate != null && !pagesToRotate.Contains(i))
+                            continue;
+
+                        PdfPage page = pdfDoc.GetPage(i);
+                        page.SetRotation((page.GetRotation() + degrees) % 360);
+                    }
                 }
+
+                File.Move(tempPath, outputPath, overwrite: true);
+            }
+            finally
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
             }
         }
 
@@ -578,7 +610,7 @@ namespace PDFManager
             return pages;
         }
 
-        private void openFileRotate_Click(object sender, RoutedEventArgs e)
+        private async void openFileRotate_Click(object sender, RoutedEventArgs e)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -587,32 +619,36 @@ namespace PDFManager
 
             if (openFileDialog.ShowDialog() != true) return;
 
-            SetRotateSourceFile(openFileDialog.FileName);
+            await SetRotateSourceFile(openFileDialog.FileName);
         }
 
-        private void SetRotateSourceFile(string path)
+        private async Task SetRotateSourceFile(string path)
         {
             lblRotateFileSource.Content = path;
             lblRotateOutput.Content = Path.Combine(
                 Path.GetDirectoryName(path),
                 Path.GetFileNameWithoutExtension(path) + "_rotated.pdf");
+            lblRotatePageCount.Content = "Reading page count...";
 
-            try
+            lblRotatePageCount.Content = await Task.Run(() =>
             {
-                using (var pdfDoc = new PdfDocument(new PdfReader(path)))
+                try
                 {
-                    int pages = pdfDoc.GetNumberOfPages();
-                    lblRotatePageCount.Content = $"Document has {pages} page{(pages == 1 ? "" : "s")}. Example: 1, 3, 5-7";
+                    using (var pdfDoc = new PdfDocument(new PdfReader(path)))
+                    {
+                        int pages = pdfDoc.GetNumberOfPages();
+                        return $"Document has {pages} page{(pages == 1 ? "" : "s")}. Example: 1, 3, 5-7";
+                    }
                 }
-            }
-            catch (iText.Kernel.Exceptions.BadPasswordException)
-            {
-                lblRotatePageCount.Content = "This PDF is password-protected and cannot be rotated.";
-            }
-            catch
-            {
-                lblRotatePageCount.Content = "Unable to read the page count.";
-            }
+                catch (iText.Kernel.Exceptions.BadPasswordException)
+                {
+                    return "This PDF is password-protected and cannot be rotated.";
+                }
+                catch
+                {
+                    return "Unable to read the page count.";
+                }
+            });
         }
 
         private void btnBrowseRotateOutput_Click(object sender, RoutedEventArgs e)
@@ -631,10 +667,10 @@ namespace PDFManager
                 lblRotateOutput.Content = saveFileDialog.FileName;
         }
 
-        private void rotateTab_Drop(object sender, DragEventArgs e)
+        private async void rotateTab_Drop(object sender, DragEventArgs e)
         {
             if (TryGetSingleDroppedPdf(e, "rotate", out string file))
-                SetRotateSourceFile(file);
+                await SetRotateSourceFile(file);
         }
 
         private static void ShowInExplorer(string filePath)
@@ -642,7 +678,7 @@ namespace PDFManager
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
         }
 
-        private void openFileSplit_Click(object sender, RoutedEventArgs e)
+        private async void openFileSplit_Click(object sender, RoutedEventArgs e)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -651,32 +687,36 @@ namespace PDFManager
 
             if (openFileDialog.ShowDialog() != true) return;
 
-            SetSplitSourceFile(openFileDialog.FileName);
+            await SetSplitSourceFile(openFileDialog.FileName);
         }
 
-        private void SetSplitSourceFile(string path)
+        private async Task SetSplitSourceFile(string path)
         {
             lblSplitFileSource.Content = path;
             lblSplitOutputFolder.Content = Path.GetDirectoryName(path);
+            lblSplitPageCount.Content = "Reading page count...";
 
-            try
+            lblSplitPageCount.Content = await Task.Run(() =>
             {
-                using (var pdfDoc = new PdfDocument(new PdfReader(path)))
+                try
                 {
-                    int pages = pdfDoc.GetNumberOfPages();
-                    lblSplitPageCount.Content = pages > 1
-                        ? $"Enter a page from 1 to {pages - 1}. The document has {pages} pages."
-                        : "This document has only 1 page and cannot be split.";
+                    using (var pdfDoc = new PdfDocument(new PdfReader(path)))
+                    {
+                        int pages = pdfDoc.GetNumberOfPages();
+                        return pages > 1
+                            ? $"Enter a page from 1 to {pages - 1}. The document has {pages} pages."
+                            : "This document has only 1 page and cannot be split.";
+                    }
                 }
-            }
-            catch (iText.Kernel.Exceptions.BadPasswordException)
-            {
-                lblSplitPageCount.Content = "This PDF is password-protected and cannot be split.";
-            }
-            catch
-            {
-                lblSplitPageCount.Content = "Unable to read the page count.";
-            }
+                catch (iText.Kernel.Exceptions.BadPasswordException)
+                {
+                    return "This PDF is password-protected and cannot be split.";
+                }
+                catch
+                {
+                    return "Unable to read the page count.";
+                }
+            });
         }
     }
 }
