@@ -329,6 +329,8 @@ namespace PDFManager
                 await AddMergeFiles(openFileDialog.FileNames);
         }
 
+        private int mergeValidationsInFlight;
+
         private async Task AddMergeFiles(IEnumerable<string> files)
         {
             var existing = new HashSet<string>(lstMergeFiles.Items.Cast<string>(), StringComparer.OrdinalIgnoreCase);
@@ -339,6 +341,7 @@ namespace PDFManager
             var accepted = new List<string>();
             var skipped = new List<string>();
 
+            mergeValidationsInFlight++;
             btnAddFileMerge.IsEnabled = false;
             btnAddMoreMerge.IsEnabled = false;
             try
@@ -367,8 +370,11 @@ namespace PDFManager
             }
             finally
             {
-                btnAddFileMerge.IsEnabled = true;
-                btnAddMoreMerge.IsEnabled = true;
+                if (--mergeValidationsInFlight == 0)
+                {
+                    btnAddFileMerge.IsEnabled = true;
+                    btnAddMoreMerge.IsEnabled = true;
+                }
             }
 
             var current = new HashSet<string>(lstMergeFiles.Items.Cast<string>(), StringComparer.OrdinalIgnoreCase);
