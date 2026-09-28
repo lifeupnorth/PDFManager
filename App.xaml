@@ -42,8 +42,10 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="TabControl">
                         <Grid>
-                            <!-- The TabControl only materialises its items through an items host, so keep a hidden one -->
-                            <TabPanel x:Name="HeaderPanel" IsItemsHost="True" Visibility="Collapsed"/>
+                            <!-- The TabControl only materialises its items through an items host, and a collapsed
+                                 panel is never measured, so the first view stays empty until the user navigates.
+                                 Keep the panel laid out but zero-sized instead. -->
+                            <TabPanel x:Name="HeaderPanel" IsItemsHost="True" Height="0" Opacity="0" IsHitTestVisible="False"/>
                             <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"/>
                         </Grid>
                     </ControlTemplate>

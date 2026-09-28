@@ -229,7 +229,7 @@
                                 <TextBlock Text="FILES TO MERGE" Style="{StaticResource SectionLabel}" Margin="0" VerticalAlignment="Center"/>
                             </DockPanel>
                             <TextBlock DockPanel.Dock="Bottom" Text="Files are merged top to bottom. Drop more PDFs anywhere on this page to add them." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,4,0,0"/>
-                            <ListBox x:Name="lstMergeFiles" Style="{StaticResource FileList}" ItemTemplate="{StaticResource MergeFileTemplate}" AllowDrop="True"/>
+                            <ListBox x:Name="lstMergeFiles" Style="{StaticResource FileList}" ItemTemplate="{StaticResource MergeFileTemplate}" SelectionMode="Extended" AllowDrop="True"/>
                         </DockPanel>
                     </Grid>
 
