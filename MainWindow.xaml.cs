@@ -108,10 +108,12 @@ namespace PDFManager
         {
             bool moreThanOne = lstMergeFiles.Items.Count > 1;
             bool hasSelection = lstMergeFiles.SelectedIndex >= 0;
+            // Moving is only meaningful for a single row; removing handles any number
+            bool oneSelected = lstMergeFiles.SelectedItems.Count == 1;
             btnRunMerge.IsEnabled = moreThanOne;
             btnRemoveFileMerge.IsEnabled = hasSelection;
-            btnMoveUp.IsEnabled = moreThanOne && hasSelection;
-            btnMoveDown.IsEnabled = moreThanOne && hasSelection;
+            btnMoveUp.IsEnabled = moreThanOne && oneSelected;
+            btnMoveDown.IsEnabled = moreThanOne && oneSelected;
         }
 
         private async void btnRunSplit_Click(object sender, RoutedEventArgs e)
