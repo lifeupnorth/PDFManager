@@ -42,7 +42,6 @@ namespace PDFManager.ViewModels
             }
         }
 
-        private bool _isPageSpecVisible;
         public bool IsPageSpecVisible => !RotateAllPages;
 
         private string _rotatePageSpec = string.Empty;
