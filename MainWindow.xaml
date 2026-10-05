@@ -18,6 +18,7 @@
         <local:StringVisibilityConverter x:Key="NotEmptyToVisibility"/>
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        <local:RadioValueConverter x:Key="RadioValue"/>
 
         <!-- Path label: single line, trimmed with an ellipsis -->
         <Style x:Key="PathLabel" TargetType="Label" BasedOn="{StaticResource ValueLabel}">
@@ -291,11 +292,9 @@
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
 
                                 <TextBlock Text="ROTATION" Style="{StaticResource SectionLabel}"/>
-                                <ComboBox SelectedValue="{Binding RotationAngle}" SelectedValuePath="Content" HorizontalAlignment="Stretch" AutomationProperties.Name="Rotation" AutomationProperties.HelpText="Degrees clockwise">
-                                    <ComboBoxItem Content="90"/>
-                                    <ComboBoxItem Content="180"/>
-                                    <ComboBoxItem Content="270"/>
-                                </ComboBox>
+                                <RadioButton Content="90° clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=90}" Style="{StaticResource OptionRadio}" GroupName="RotateAngle"/>
+                                <RadioButton Content="180°" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=180}" Style="{StaticResource OptionRadio}" GroupName="RotateAngle"/>
+                                <RadioButton Content="90° counter-clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=270}" Style="{StaticResource OptionRadio}" GroupName="RotateAngle"/>
 
                                 <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
                                 <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>

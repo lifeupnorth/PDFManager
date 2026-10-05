@@ -33,6 +33,21 @@ namespace PDFManager
             => throw new NotSupportedException();
     }
 
+    /// <summary>
+    /// Checks a radio button when the bound value equals its ConverterParameter, and writes the
+    /// parameter back when the button is checked. Used for the rotation angle options.
+    /// </summary>
+    public class RadioValueConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => string.Equals(value?.ToString(), parameter?.ToString(), StringComparison.Ordinal);
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is true
+                ? System.Convert.ChangeType(parameter, targetType, CultureInfo.InvariantCulture)
+                : Binding.DoNothing; // an option being unchecked by its group says nothing about the value
+    }
+
     public class InverseBoolToVisibilityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
