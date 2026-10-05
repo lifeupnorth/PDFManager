@@ -83,7 +83,7 @@ namespace PDFManager.ViewModels
             RunRotateCommand = new RelayCommand(ExecuteRunRotate, CanExecuteRunRotate);
         }
 
-        private void ExecuteOpenFile(object? parameter)
+        private async void ExecuteOpenFile(object? parameter)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -91,7 +91,7 @@ namespace PDFManager.ViewModels
             };
 
             if (openFileDialog.ShowDialog() == true)
-                UpdateFile(openFileDialog.FileName);
+                await UpdateFileAsync(openFileDialog.FileName);
         }
 
         private void ExecuteBrowseOutput(object? parameter)
@@ -173,27 +173,32 @@ namespace PDFManager.ViewModels
             }
         }
 
-        public void UpdateFile(string path)
+        public async Task UpdateFileAsync(string path)
         {
             SourcePath = path;
             OutputPath = Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path) + "_rotated.pdf");
+            PageCountInfo = "Reading page count...";
 
-            try
+            string info = await Task.Run(() =>
             {
-                using (var pdfDoc = new iText.Kernel.Pdf.PdfDocument(new iText.Kernel.Pdf.PdfReader(path)))
+                try
                 {
-                    int pages = pdfDoc.GetNumberOfPages();
-                    PageCountInfo = $"Document has {pages} page{(pages == 1 ? "" : "s")}. Example: 1, 3, 5-7";
+                    int pages = _pdfService.GetPageCount(path);
+                    return $"Document has {pages} page{(pages == 1 ? "" : "s")}. Example: 1, 3, 5-7";
                 }
-            }
-            catch (iText.Kernel.Exceptions.BadPasswordException)
-            {
-                PageCountInfo = "This PDF is password-protected and cannot be rotated.";
-            }
-            catch
-            {
-                PageCountInfo = "Unable to read the page count.";
-            }
+                catch (iText.Kernel.Exceptions.BadPasswordException)
+                {
+                    return "This PDF is password-protected and cannot be rotated.";
+                }
+                catch
+                {
+                    return "Unable to read the page count.";
+                }
+            });
+
+            // Another file may have been picked while this one was being read
+            if (SourcePath == path)
+                PageCountInfo = info;
         }
 
         private void ShowInExplorer(string filePath)

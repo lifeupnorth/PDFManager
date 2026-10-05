@@ -59,7 +59,7 @@ namespace PDFManager.ViewModels
             RunSplitCommand = new RelayCommand(ExecuteSplit, CanExecuteSplit);
         }
 
-        private void ExecuteOpenFile(object? parameter)
+        private async void ExecuteOpenFile(object? parameter)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -67,7 +67,7 @@ namespace PDFManager.ViewModels
             };
 
             if (openFileDialog.ShowDialog() == true)
-                UpdateFile(openFileDialog.FileName);
+                await UpdateFileAsync(openFileDialog.FileName);
         }
 
         private async void ExecuteSplit(object? parameter)
@@ -119,25 +119,34 @@ namespace PDFManager.ViewModels
 
         private bool CanExecuteSplit(object? parameter) => !IsBusy;
 
-        public void UpdateFile(string path)
+        public async Task UpdateFileAsync(string path)
         {
             SourcePath = path;
             OutputFolder = Path.GetDirectoryName(path)!;
+            PageCountInfo = "Reading page count...";
 
-            try
+            string info = await Task.Run(() =>
             {
-                using (var pdfDoc = new PdfDocument(new PdfReader(path)))
+                try
                 {
-                    int pages = pdfDoc.GetNumberOfPages();
-                    PageCountInfo = pages > 1
+                    int pages = _pdfService.GetPageCount(path);
+                    return pages > 1
                         ? $"Enter a page from 1 to {pages - 1}. The document has {pages} pages."
                         : "This document has only 1 page and cannot be split.";
                 }
-            }
-            catch
-            {
-                PageCountInfo = "Unable to read the page count.";
-            }
+                catch (iText.Kernel.Exceptions.BadPasswordException)
+                {
+                    return "This PDF is password-protected and cannot be split.";
+                }
+                catch
+                {
+                    return "Unable to read the page count.";
+                }
+            });
+
+            // Another file may have been picked while this one was being read
+            if (SourcePath == path)
+                PageCountInfo = info;
         }
 
         private void ShowInExplorer(string filePath)

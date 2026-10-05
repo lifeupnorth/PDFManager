@@ -68,22 +68,22 @@ namespace PDFManager
             e.Handled = true;
         }
 
-        private void splitTab_Drop(object sender, DragEventArgs e)
+        private async void splitTab_Drop(object sender, DragEventArgs e)
         {
             if (TryGetSingleDroppedPdf(e, "split", out string file))
-                ViewModel.Split.UpdateFile(file);
+                await ViewModel.Split.UpdateFileAsync(file);
         }
 
-        private void mergeTab_Drop(object sender, DragEventArgs e)
+        private async void mergeTab_Drop(object sender, DragEventArgs e)
         {
             if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
-                ViewModel.Merge.AddFiles(files);
+                await ViewModel.Merge.AddFilesAsync(files);
         }
 
-        private void rotateTab_Drop(object sender, DragEventArgs e)
+        private async void rotateTab_Drop(object sender, DragEventArgs e)
         {
             if (TryGetSingleDroppedPdf(e, "rotate", out string file))
-                ViewModel.Rotate.UpdateFile(file);
+                await ViewModel.Rotate.UpdateFileAsync(file);
         }
 
         private static bool TryGetSingleDroppedPdf(DragEventArgs e, string action, out string file)

@@ -17,12 +17,10 @@ namespace PDFManager.ViewModels
 
         public ObservableCollection<string> MergeFiles { get; } = new ObservableCollection<string>();
 
-        private string _selectedFile = string.Empty;
-        public string SelectedFile
-        {
-            get => _selectedFile;
-            set => SetProperty(ref _selectedFile, value);
-        }
+        // Adds can overlap (a drop while picked files are still being checked), so count
+        // them and keep the add buttons disabled until every validation has finished
+        private int _validationsInFlight;
+        public bool IsAddingFiles => _validationsInFlight > 0;
 
         private string _outputPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Merged File.pdf");
         public string OutputPath
@@ -49,8 +47,8 @@ namespace PDFManager.ViewModels
         {
             _pdfService = pdfService;
 
-            AddFilesCommand = new RelayCommand(ExecuteAddFiles);
-            RemoveFileCommand = new RelayCommand(ExecuteRemoveFile, CanExecuteRemoveFile);
+            AddFilesCommand = new RelayCommand(ExecuteAddFiles, _ => !IsAddingFiles);
+            RemoveFileCommand = new RelayCommand(ExecuteRemoveFiles, CanExecuteRemoveFiles);
             MoveUpCommand = new RelayCommand(ExecuteMoveUp, CanExecuteMoveUp);
             MoveDownCommand = new RelayCommand(ExecuteMoveDown, CanExecuteMoveDown);
             BrowseOutputCommand = new RelayCommand(ExecuteBrowseOutput);
@@ -60,7 +58,7 @@ namespace PDFManager.ViewModels
             MergeFiles.CollectionChanged += (s, e) => CommandManager.InvalidateRequerySuggested();
         }
 
-        private void ExecuteAddFiles(object? parameter)
+        private async void ExecuteAddFiles(object? parameter)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -69,63 +67,105 @@ namespace PDFManager.ViewModels
             };
 
             if (openFileDialog.ShowDialog() == true)
-                AddFiles(openFileDialog.FileNames);
+                await AddFilesAsync(openFileDialog.FileNames);
         }
 
-        public void AddFiles(IEnumerable<string> files)
+        public async Task AddFilesAsync(IEnumerable<string> files)
         {
-            var skipped = new List<string>();
-            foreach (var file in files)
-            {
-                if (MergeFiles.Any(f => string.Equals(f, file, StringComparison.OrdinalIgnoreCase)))
-                    continue;
+            var existing = new HashSet<string>(MergeFiles, StringComparer.OrdinalIgnoreCase);
+            var candidates = files.Where(existing.Add).ToList();
+            if (candidates.Count == 0)
+                return;
 
-                try
+            var accepted = new List<string>();
+            var skipped = new List<string>();
+
+            _validationsInFlight++;
+            OnPropertyChanged(nameof(IsAddingFiles));
+            try
+            {
+                // Reading each PDF is slow enough to freeze the window when several
+                // large files are added at once, so validate them off the UI thread
+                await Task.Run(() =>
                 {
-                    using (var reader = new iText.Kernel.Pdf.PdfReader(file))
-                    using (var readerDoc = new iText.Kernel.Pdf.PdfDocument(reader)) { }
-                    MergeFiles.Add(file);
-                }
-                catch (iText.Kernel.Exceptions.BadPasswordException)
-                {
-                    skipped.Add($"{Path.GetFileName(file)} (password-protected)");
-                }
-                catch
-                {
-                    skipped.Add($"{Path.GetFileName(file)} (not a valid PDF)");
-                }
+                    foreach (var file in candidates)
+                    {
+                        try
+                        {
+                            _pdfService.GetPageCount(file);
+                            accepted.Add(file);
+                        }
+                        catch (iText.Kernel.Exceptions.BadPasswordException)
+                        {
+                            skipped.Add($"{Path.GetFileName(file)} (password-protected)");
+                        }
+                        catch
+                        {
+                            skipped.Add($"{Path.GetFileName(file)} (not a valid PDF)");
+                        }
+                    }
+                });
             }
+            finally
+            {
+                _validationsInFlight--;
+                OnPropertyChanged(nameof(IsAddingFiles));
+            }
+
+            // An overlapping add may have listed some of the same files while this one was validating
+            var current = new HashSet<string>(MergeFiles, StringComparer.OrdinalIgnoreCase);
+            foreach (var file in accepted)
+                if (current.Add(file))
+                    MergeFiles.Add(file);
 
             if (skipped.Any())
                 MessageBox.Show($"The following files were not added:\n{string.Join("\n", skipped)}", "Some Files Skipped", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
-        private bool CanExecuteRemoveFile(object? parameter) => !string.IsNullOrEmpty(SelectedFile);
+        // Remove and the move commands get the list's SelectedItems as their parameter.
+        // Removing works on any number of files; moving only on exactly one.
+        private static string? SingleSelected(object? parameter) =>
+            parameter is System.Collections.IList { Count: 1 } selected ? selected[0] as string : null;
 
-        private void ExecuteRemoveFile(object? parameter)
+        private bool CanExecuteRemoveFiles(object? parameter) => parameter is System.Collections.IList { Count: > 0 };
+
+        private void ExecuteRemoveFiles(object? parameter)
         {
-            if (!string.IsNullOrEmpty(SelectedFile))
-                MergeFiles.Remove(SelectedFile);
+            if (parameter is not System.Collections.IList selectedItems)
+                return;
+
+            // Snapshot first: SelectedItems shrinks as items are removed
+            var selected = new HashSet<string>(selectedItems.Cast<string>(), StringComparer.OrdinalIgnoreCase);
+            for (int i = MergeFiles.Count - 1; i >= 0; i--)
+                if (selected.Contains(MergeFiles[i]))
+                    MergeFiles.RemoveAt(i);
         }
 
-        private bool CanExecuteMoveUp(object? parameter) => MergeFiles.Count > 1 && !string.IsNullOrEmpty(SelectedFile) && MergeFiles.IndexOf(SelectedFile) > 0;
+        private bool CanExecuteMoveUp(object? parameter)
+        {
+            string? file = SingleSelected(parameter);
+            return file != null && MergeFiles.IndexOf(file) > 0;
+        }
+
         private void ExecuteMoveUp(object? parameter)
         {
-            int index = MergeFiles.IndexOf(SelectedFile);
+            int index = MergeFiles.IndexOf(SingleSelected(parameter)!);
             if (index > 0)
-            {
                 MergeFiles.Move(index, index - 1);
-            }
         }
 
-        private bool CanExecuteMoveDown(object? parameter) => MergeFiles.Count > 1 && !string.IsNullOrEmpty(SelectedFile) && MergeFiles.IndexOf(SelectedFile) < MergeFiles.Count - 1;
+        private bool CanExecuteMoveDown(object? parameter)
+        {
+            string? file = SingleSelected(parameter);
+            int index = file == null ? -1 : MergeFiles.IndexOf(file);
+            return index >= 0 && index < MergeFiles.Count - 1;
+        }
+
         private void ExecuteMoveDown(object? parameter)
         {
-            int index = MergeFiles.IndexOf(SelectedFile);
-            if (index < MergeFiles.Count - 1)
-            {
+            int index = MergeFiles.IndexOf(SingleSelected(parameter)!);
+            if (index >= 0 && index < MergeFiles.Count - 1)
                 MergeFiles.Move(index, index + 1);
-            }
         }
 
         private void ExecuteBrowseOutput(object? parameter)
@@ -179,18 +219,22 @@ namespace PDFManager.ViewModels
                     return;
             }
 
+            // Read the inputs here: the work runs on a background thread, and files can
+            // still be dropped onto the list while it does
+            string outputPath = OutputPath;
+            var sourceFiles = MergeFiles.ToList();
             try
             {
                 IsBusy = true;
-                await Task.Run(() => _pdfService.MergePdfs(OutputPath, MergeFiles.ToList()));
+                await Task.Run(() => _pdfService.MergePdfs(outputPath, sourceFiles));
 
                 var openFolder = MessageBox.Show("PDFs merged successfully!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
                 if (openFolder == MessageBoxResult.Yes)
-                    ShowInExplorer(OutputPath);
+                    ShowInExplorer(outputPath);
             }
             catch (Exception ex)
             {
-                try { if (File.Exists(OutputPath)) File.Delete(OutputPath); } catch { }
+                try { if (File.Exists(outputPath)) File.Delete(outputPath); } catch { }
                 MessageBox.Show($"Error merging PDFs: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally

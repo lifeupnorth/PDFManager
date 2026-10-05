@@ -6,6 +6,7 @@ namespace PDFManager.Services
 {
     public interface IPdfService
     {
+        int GetPageCount(string path);
         string GetSplitDestPattern(string sourcePath);
         void SplitPdf(string sourcePath, int splitPage, string folderPath);
         void MergePdfs(string outputPath, List<string> sourceFiles);

@@ -52,11 +52,20 @@ namespace PDFManager.Services
             }
         }
 
+        public int GetPageCount(string path)
+        {
+            using (var pdfDoc = new PdfDocument(new PdfReader(path)))
+                return pdfDoc.GetNumberOfPages();
+        }
+
         public void MergePdfs(string outputPath, List<string> sourceFiles)
         {
-            using (var resultDoc = new PdfDocument(new PdfWriter(outputPath)))
+            // Smart mode lets iText reuse identical objects (fonts, images, resource
+            // dictionaries) shared by the source documents instead of writing a copy per file
+            using (var resultDoc = new PdfDocument(new PdfWriter(outputPath, new WriterProperties().UseSmartMode())))
             {
                 var formCopier = new PdfPageFormCopier();
+                PdfOutline rootOutline = null;
                 int pageIndex = 1;
 
                 foreach (var filePath in sourceFiles)
@@ -68,7 +77,7 @@ namespace PDFManager.Services
                             int numberOfPages = srcDoc.GetNumberOfPages();
                             srcDoc.CopyPagesTo(1, numberOfPages, resultDoc, formCopier);
 
-                            var rootOutline = resultDoc.GetOutlines(false);
+                            rootOutline ??= resultDoc.GetOutlines(false);
                             var outline = rootOutline.AddOutline(Path.GetFileNameWithoutExtension(filePath));
                             outline.AddDestination(PdfExplicitDestination.CreateFit(resultDoc.GetPage(pageIndex)));
 
@@ -89,22 +98,24 @@ namespace PDFManager.Services
 
         public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees)
         {
-            // Validate against the source before creating the writer, because
-            // PdfWriter truncates the output file as soon as it is constructed
-            int totalPages;
-            using (var probe = new PdfDocument(new PdfReader(sourcePath)))
-                totalPages = probe.GetNumberOfPages();
-
-            // A null spec means "All pages"
-            ISet<int> pagesToRotate = pageSpec == null
-                ? null
-                : ParsePageRanges(pageSpec, totalPages);
-
-            var writer = new PdfWriter(outputPath);
+            // Rotating writes to a temporary file that replaces the output only on success,
+            // so the source is read once and a failed run leaves the output untouched
+            string tempPath = outputPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
-                using (var pdfDoc = new PdfDocument(new PdfReader(sourcePath), writer))
+                // The reader and writer get their own usings: if PdfDocument's constructor throws
+                // (e.g. a password-protected source), nothing else would close the temp file
+                using (var reader = new PdfReader(sourcePath))
+                using (var writer = new PdfWriter(tempPath))
+                using (var pdfDoc = new PdfDocument(reader, writer))
                 {
+                    int totalPages = pdfDoc.GetNumberOfPages();
+
+                    // A null spec means "All pages"
+                    ISet<int> pagesToRotate = pageSpec == null
+                        ? null
+                        : ParsePageRanges(pageSpec, totalPages);
+
                     for (int i = 1; i <= totalPages; i++)
                     {
                         if (pagesToRotate == null || pagesToRotate.Contains(i))
@@ -114,13 +125,12 @@ namespace PDFManager.Services
                         }
                     }
                 }
+
+                File.Move(tempPath, outputPath, overwrite: true);
             }
-            catch
+            finally
             {
-                // The writer has already truncated the output, so don't leave a broken partial PDF behind
-                try { writer.Close(); } catch { }
-                try { File.Delete(outputPath); } catch { }
-                throw;
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
             }
         }
 

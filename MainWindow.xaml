@@ -170,7 +170,7 @@
                             <TextBlock Text="FILES TO MERGE" Style="{StaticResource SectionLabel}" VerticalAlignment="Center"/>
                         </DockPanel>
                         <TextBlock DockPanel.Dock="Bottom" Text="Files are merged top to bottom. Drop more PDFs anywhere on this page to add them." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,4,0,0"/>
-                        <ListBox x:Name="lstMergeFiles" ItemsSource="{Binding MergeFiles}" SelectedItem="{Binding SelectedFile}" Style="{StaticResource FileList}" ItemTemplate="{StaticResource MergeFileTemplate}"/>
+                        <ListBox x:Name="lstMergeFiles" ItemsSource="{Binding MergeFiles}" SelectionMode="Extended" Style="{StaticResource FileList}" ItemTemplate="{StaticResource MergeFileTemplate}"/>
                     </DockPanel>
                 </Grid>
 
@@ -185,10 +185,10 @@
 
                                 <TextBlock Text="ORDER" Style="{StaticResource SectionLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <Button Command="{Binding MoveUpCommand}" Content="Move up" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0"/>
-                                    <Button Command="{Binding MoveDownCommand}" Content="Move down" Style="{StaticResource SecondaryButton}" Margin="4,0,0,0"/>
+                                    <Button Command="{Binding MoveUpCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstMergeFiles}" Content="Move up" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0"/>
+                                    <Button Command="{Binding MoveDownCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstMergeFiles}" Content="Move down" Style="{StaticResource SecondaryButton}" Margin="4,0,0,0"/>
                                 </UniformGrid>
-                                <Button Command="{Binding RemoveFileCommand}" Content="Remove selected" Style="{StaticResource SecondaryButton}" Margin="0,8,0,0" HorizontalAlignment="Stretch"/>
+                                <Button Command="{Binding RemoveFileCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstMergeFiles}" Content="Remove selected" Style="{StaticResource SecondaryButton}" Margin="0,8,0,0" HorizontalAlignment="Stretch"/>
                                 <Label Style="{StaticResource HintLabel}" Content="Select a file in the list to reorder or remove it."/>
 
                                 <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
