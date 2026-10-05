@@ -21,7 +21,7 @@ namespace PDFManager.Tests
         [InlineData(1, "This document has only 1 page and cannot be split.")]
         public async Task Split_hint_describes_the_valid_split_pages(int pages, string hint)
         {
-            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer());
+            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer(), new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Report.pdf"));
 
@@ -32,7 +32,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Split_hint_flags_a_password_protected_file()
         {
-            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer());
+            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer(), new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
 
@@ -42,7 +42,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Split_hint_reports_an_unreadable_file()
         {
-            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => throw new IOException("gone") }, new FakePageRenderer());
+            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => throw new IOException("gone") }, new FakePageRenderer(), new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Broken.pdf"));
 
@@ -62,7 +62,7 @@ namespace PDFManager.Tests
                         firstMayFinish.Wait();
                     return path == first ? 9 : 3;
                 }
-            }, new FakePageRenderer());
+            }, new FakePageRenderer(), new FakeDialogService());
 
             Task slow = vm.UpdateFileAsync(first);
             await vm.UpdateFileAsync(second);
@@ -382,7 +382,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Merge_adds_files_in_order_and_skips_ones_already_listed_ignoring_case()
         {
-            var vm = new MergeViewModel(new FakePdfService { PageCount = _ => 1 });
+            var vm = new MergeViewModel(new FakePdfService { PageCount = _ => 1 }, new FakeDialogService());
             string a = Path.Combine(Folder, "a.pdf"), b = Path.Combine(Folder, "b.pdf"), c = Path.Combine(Folder, "c.pdf");
 
             await vm.AddFilesAsync(new[] { b, a });

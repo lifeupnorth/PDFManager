@@ -28,10 +28,10 @@ namespace PDFManager.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public MainViewModel(IPdfService pdfService, IPageRenderer pageRenderer, Action<AppTheme> applyTheme)
+        public MainViewModel(IPdfService pdfService, IPageRenderer pageRenderer, IDialogService dialogs, Action<AppTheme> applyTheme)
         {
-            Split = new SplitViewModel(pdfService, pageRenderer);
-            Merge = new MergeViewModel(pdfService);
+            Split = new SplitViewModel(pdfService, pageRenderer, dialogs);
+            Merge = new MergeViewModel(pdfService, dialogs);
             Rotate = new RotateViewModel(pdfService, pageRenderer);
             Extract = new ExtractViewModel(pdfService, pageRenderer);
             Metadata = new MetadataViewModel(pdfService);

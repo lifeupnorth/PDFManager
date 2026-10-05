@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using PDFManager.Base;
 using PDFManager.Services;
@@ -14,6 +13,7 @@ namespace PDFManager.ViewModels
     public class MergeViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
+        private readonly IDialogService _dialogs;
 
         public ObservableCollection<string> MergeFiles { get; } = new ObservableCollection<string>();
 
@@ -43,9 +43,10 @@ namespace PDFManager.ViewModels
         public ICommand BrowseOutputCommand { get; }
         public ICommand RunMergeCommand { get; }
 
-        public MergeViewModel(IPdfService pdfService)
+        public MergeViewModel(IPdfService pdfService, IDialogService dialogs)
         {
             _pdfService = pdfService;
+            _dialogs = dialogs;
 
             AddFilesCommand = new RelayCommand(ExecuteAddFiles, _ => !IsAddingFiles);
             RemoveFileCommand = new RelayCommand(ExecuteRemoveFiles, CanExecuteRemoveFiles);
@@ -58,17 +59,8 @@ namespace PDFManager.ViewModels
             MergeFiles.CollectionChanged += (s, e) => CommandManager.InvalidateRequerySuggested();
         }
 
-        private async void ExecuteAddFiles(object? parameter)
-        {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf",
-                Multiselect = true
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-                await AddFilesAsync(openFileDialog.FileNames);
-        }
+        private async void ExecuteAddFiles(object? parameter) =>
+            await AddFilesAsync(_dialogs.PickFiles("PDF Files (*.pdf)|*.pdf"));
 
         public async Task AddFilesAsync(IEnumerable<string> files)
         {
@@ -119,7 +111,7 @@ namespace PDFManager.ViewModels
                     MergeFiles.Add(file);
 
             if (skipped.Any())
-                MessageBox.Show($"The following files were not added:\n{string.Join("\n", skipped)}", "Some Files Skipped", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show($"The following files were not added:\n{string.Join("\n", skipped)}", "Some Files Skipped", DialogIcon.Warning);
         }
 
         // Remove and the move commands get the list's SelectedItems as their parameter.
@@ -170,15 +162,9 @@ namespace PDFManager.ViewModels
 
         private void ExecuteBrowseOutput(object? parameter)
         {
-            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf",
-                FileName = "Merged File.pdf",
-                DefaultExt = ".pdf"
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-                OutputPath = saveFileDialog.FileName;
+            string? path = _dialogs.PickSaveFile("PDF Files (*.pdf)|*.pdf", ".pdf", "Merged File.pdf");
+            if (path != null)
+                OutputPath = path;
         }
 
         private bool CanExecuteRunMerge(object? parameter)
@@ -192,12 +178,15 @@ namespace PDFManager.ViewModels
             return true;
         }
 
-        private async void ExecuteRunMerge(object? parameter)
+        private async void ExecuteRunMerge(object? parameter) => await MergeAsync();
+
+        // The Merge button's work, including its messages and confirmations
+        public async Task MergeAsync()
         {
             var missingFiles = MergeFiles.Where(f => !File.Exists(f)).ToList();
             if (missingFiles.Any())
             {
-                MessageBox.Show($"The following files no longer exist:\n{string.Join("\n", missingFiles)}", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show($"The following files no longer exist:\n{string.Join("\n", missingFiles)}", "Validation Error", DialogIcon.Warning);
                 return;
             }
 
@@ -206,18 +195,14 @@ namespace PDFManager.ViewModels
             string fullOutputPath = Path.GetFullPath(OutputPath);
             if (MergeFiles.Any(f => string.Equals(Path.GetFullPath(f), fullOutputPath, StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show("The output file cannot be one of the files being merged. Please choose a different output path.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show("The output file cannot be one of the files being merged. Please choose a different output path.", "Validation Error", DialogIcon.Warning);
                 return;
             }
 
-            if (File.Exists(OutputPath))
-            {
-                var result = MessageBox.Show(
+            if (File.Exists(OutputPath) && !_dialogs.Confirm(
                     $"\"{OutputPath}\" already exists and will be overwritten.\n\nContinue?",
-                    "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
-                    return;
-            }
+                    "Confirm Overwrite", DialogIcon.Warning))
+                return;
 
             // Read the inputs here: the work runs on a background thread, and files can
             // still be dropped onto the list while it does
@@ -228,9 +213,8 @@ namespace PDFManager.ViewModels
                 IsBusy = true;
                 await Task.Run(() => _pdfService.MergePdfs(outputPath, sourceFiles));
 
-                var openFolder = MessageBox.Show("PDFs merged successfully!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (openFolder == MessageBoxResult.Yes)
-                    ShowInExplorer(outputPath);
+                if (_dialogs.Confirm("PDFs merged successfully!\n\nOpen the output folder?", "Success", DialogIcon.Information))
+                    _dialogs.ShowInExplorer(outputPath);
             }
             catch (Exception ex)
             {
@@ -238,17 +222,12 @@ namespace PDFManager.ViewModels
                 // InvalidOperationException carries the service's own validation messages
                 if (ex is not InvalidOperationException)
                     ErrorLog.Write(ex, "Merge");
-                MessageBox.Show($"Error merging PDFs: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show($"Error merging PDFs: {ex.Message}", "Error", DialogIcon.Error);
             }
             finally
             {
                 IsBusy = false;
             }
-        }
-
-        private void ShowInExplorer(string filePath)
-        {
-            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
         }
     }
 }

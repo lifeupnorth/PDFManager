@@ -220,7 +220,7 @@ namespace PDFManager.Tests
 
         private static async Task<SplitViewModel> LoadedSplit(int pages)
         {
-            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer { PageCount = _ => pages });
+            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer { PageCount = _ => pages }, new FakeDialogService());
             await vm.UpdateFileAsync(Doc);
             await vm.Thumbnails.Loading;
             return vm;

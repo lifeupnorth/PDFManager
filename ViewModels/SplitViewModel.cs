@@ -2,17 +2,16 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using PDFManager.Base;
 using PDFManager.Services;
-using iText.Kernel.Pdf;
 
 namespace PDFManager.ViewModels
 {
     public class SplitViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
+        private readonly IDialogService _dialogs;
 
         private string _sourcePath = string.Empty;
         public string SourcePath
@@ -54,9 +53,10 @@ namespace PDFManager.ViewModels
         public ICommand OpenFileCommand { get; }
         public ICommand RunSplitCommand { get; }
 
-        public SplitViewModel(IPdfService pdfService, IPageRenderer pageRenderer)
+        public SplitViewModel(IPdfService pdfService, IPageRenderer pageRenderer, IDialogService dialogs)
         {
             _pdfService = pdfService;
+            _dialogs = dialogs;
             Thumbnails = new PageThumbnailsViewModel(pageRenderer);
             Thumbnails.PageClicked += SplitAfterPage;
             Thumbnails.PagesLoaded += ShowSplitPoint;
@@ -66,26 +66,25 @@ namespace PDFManager.ViewModels
 
         private async void ExecuteOpenFile(object? parameter)
         {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf"
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-                await UpdateFileAsync(openFileDialog.FileName);
+            string? path = _dialogs.PickFile("PDF Files (*.pdf)|*.pdf");
+            if (path != null)
+                await UpdateFileAsync(path);
         }
 
-        private async void ExecuteSplit(object? parameter)
+        private async void ExecuteSplit(object? parameter) => await SplitAsync();
+
+        // The Split button's work, including its messages and confirmations
+        public async Task SplitAsync()
         {
             if (string.IsNullOrWhiteSpace(SourcePath) || !File.Exists(SourcePath))
             {
-                MessageBox.Show("Please select a valid PDF file to split.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show("Please select a valid PDF file to split.", "Validation Error", DialogIcon.Warning);
                 return;
             }
 
             if (!int.TryParse(SplitPageNum, out int pageNum) || pageNum < 1)
             {
-                MessageBox.Show("Please enter a valid page number greater than 0.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show("Please enter a valid page number greater than 0.", "Validation Error", DialogIcon.Warning);
                 return;
             }
 
@@ -94,14 +93,10 @@ namespace PDFManager.ViewModels
                 .Select(i => string.Format(destPattern, i))
                 .Where(File.Exists)
                 .ToList();
-            if (existingOutputs.Any())
-            {
-                var result = MessageBox.Show(
+            if (existingOutputs.Any() && !_dialogs.Confirm(
                     $"The following files already exist and will be overwritten:\n{string.Join("\n", existingOutputs)}\n\nContinue?",
-                    "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
-                    return;
-            }
+                    "Confirm Overwrite", DialogIcon.Warning))
+                return;
 
             // Read the input here: the work runs on a background thread
             string sourcePath = SourcePath;
@@ -110,24 +105,23 @@ namespace PDFManager.ViewModels
                 IsBusy = true;
                 await Task.Run(() => _pdfService.SplitPdf(sourcePath, pageNum, Path.GetDirectoryName(sourcePath)!));
 
-                var openFolder = MessageBox.Show("PDF split successfully!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (openFolder == MessageBoxResult.Yes)
-                    ShowInExplorer(string.Format(destPattern, 1));
+                if (_dialogs.Confirm("PDF split successfully!\n\nOpen the output folder?", "Success", DialogIcon.Information))
+                    _dialogs.ShowInExplorer(string.Format(destPattern, 1));
             }
             catch (iText.Kernel.Exceptions.BadPasswordException)
             {
-                MessageBox.Show("This PDF is password-protected and cannot be split.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show("This PDF is password-protected and cannot be split.", "Error", DialogIcon.Error);
             }
             catch (iText.IO.Exceptions.IOException)
             {
-                MessageBox.Show("This file is not a valid PDF or is corrupted.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show("This file is not a valid PDF or is corrupted.", "Error", DialogIcon.Error);
             }
             catch (Exception ex)
             {
                 // InvalidOperationException carries the service's own validation messages
                 if (ex is not InvalidOperationException)
                     ErrorLog.Write(ex, "Split");
-                MessageBox.Show($"Error splitting PDF: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show($"Error splitting PDF: {ex.Message}", "Error", DialogIcon.Error);
             }
             finally
             {
@@ -180,11 +174,6 @@ namespace PDFManager.ViewModels
             // Another file may have been picked while this one was being read
             if (SourcePath == path)
                 PageCountInfo = info;
-        }
-
-        private void ShowInExplorer(string filePath)
-        {
-            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
         }
     }
 }

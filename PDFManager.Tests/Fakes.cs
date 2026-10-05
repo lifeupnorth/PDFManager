@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -13,11 +14,14 @@ namespace PDFManager.Tests
         public Func<string, PdfMetadata> Metadata { get; init; } = _ => new PdfMetadata("", "", "", "");
         public Func<string, PdfProtection> Protection { get; init; } = _ => PdfProtection.None;
         public Action<string, string>? Rotate { get; init; }
+        public Action<string, int, string>? Split { get; init; }
+        public Action<string, List<string>>? Merge { get; init; }
 
         public int GetPageCount(string path) => PageCount(path);
-        public string GetSplitDestPattern(string sourcePath) => throw new NotSupportedException();
-        public void SplitPdf(string sourcePath, int splitPage, string folderPath) => throw new NotSupportedException();
-        public void MergePdfs(string outputPath, List<string> sourceFiles) => throw new NotSupportedException();
+        public string GetSplitDestPattern(string sourcePath) =>
+            Path.Combine(Path.GetDirectoryName(sourcePath)!, Path.GetFileNameWithoutExtension(sourcePath) + "_part{0}.pdf");
+        public void SplitPdf(string sourcePath, int splitPage, string folderPath) => (Split ?? throw new NotSupportedException())(sourcePath, splitPage, folderPath);
+        public void MergePdfs(string outputPath, List<string> sourceFiles) => (Merge ?? throw new NotSupportedException())(outputPath, sourceFiles);
         public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees) => (Rotate ?? throw new NotSupportedException())(sourcePath, outputPath);
         public void ExtractPages(string sourcePath, string outputPath, string pageSpec) => throw new NotSupportedException();
         public PdfMetadata ReadMetadata(string path) => Metadata(path);
@@ -28,6 +32,47 @@ namespace PDFManager.Tests
         public void AddWatermark(string sourcePath, string outputPath, WatermarkOptions options) => throw new NotSupportedException();
         public void ImagesToPdf(IList<string> imagePaths, string outputPath, ImagePageOptions options) => throw new NotSupportedException();
         public ISet<int> ParsePageRanges(string spec, int totalPages) => throw new NotSupportedException();
+    }
+
+    internal sealed record DialogCall(bool IsQuestion, string Message, string Title, DialogIcon Icon);
+
+    internal sealed record SaveFileRequest(string Filter, string DefaultExtension, string FileName);
+
+    // Records every message and question. Questions are answered by Answer, which by default
+    // says No: the answer that changes nothing. Pickers return the Picked* values, where null
+    // or empty means the dialog was cancelled.
+    internal sealed class FakeDialogService : IDialogService
+    {
+        public Func<string, bool> Answer { get; set; } = _ => false;
+        public string? PickedFile { get; set; }
+        public IReadOnlyList<string> PickedFiles { get; set; } = Array.Empty<string>();
+        public string? PickedSaveFile { get; set; }
+        public string? PickedFolder { get; set; }
+
+        public List<DialogCall> Calls { get; } = new List<DialogCall>();
+        public List<SaveFileRequest> SaveFileRequests { get; } = new List<SaveFileRequest>();
+        public List<string> ShownInExplorer { get; } = new List<string>();
+
+        public void Show(string message, string title, DialogIcon icon) =>
+            Calls.Add(new DialogCall(false, message, title, icon));
+
+        public bool Confirm(string message, string title, DialogIcon icon)
+        {
+            Calls.Add(new DialogCall(true, message, title, icon));
+            return Answer(message);
+        }
+
+        public string? PickFile(string filter) => PickedFile;
+        public IReadOnlyList<string> PickFiles(string filter) => PickedFiles;
+
+        public string? PickSaveFile(string filter, string defaultExtension, string fileName)
+        {
+            SaveFileRequests.Add(new SaveFileRequest(filter, defaultExtension, fileName));
+            return PickedSaveFile;
+        }
+
+        public string? PickFolder(string title, string? initialFolder = null) => PickedFolder;
+        public void ShowInExplorer(string filePath) => ShownInExplorer.Add(filePath);
     }
 
     // Pretends every file has PageCount pages, each drawn as a one-pixel image

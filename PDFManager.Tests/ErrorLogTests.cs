@@ -5,8 +5,9 @@ using PDFManager.Services;
 
 namespace PDFManager.Tests
 {
-    // ErrorLog.Folder is static, so every test that changes it lives in this one class:
-    // xUnit runs the tests within a class one at a time
+    // ErrorLog.Folder is static, so every class that changes it joins the "Error log"
+    // collection: xUnit runs the tests within a collection one at a time
+    [Collection("Error log")]
     public class ErrorLogTests : IDisposable
     {
         private readonly string _originalFolder = ErrorLog.Folder;
