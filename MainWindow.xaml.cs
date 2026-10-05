@@ -40,7 +40,7 @@ namespace PDFManager
         {
             if (sender is FrameworkElement fe && int.TryParse(fe.Tag?.ToString(), out int index))
             {
-                var navItems = new[] { navHome, navSplit, navMerge, navRotate, navExtract, navMetadata, navProtect, navUnlock, navWatermark, navBatch };
+                var navItems = new[] { navHome, navSplit, navMerge, navRotate, navExtract, navMetadata, navProtect, navUnlock, navWatermark, navBatch, navPdfToImage };
                 if (index >= 0 && index < navItems.Length)
                     navItems[index].IsChecked = true;
             }
@@ -63,6 +63,7 @@ namespace PDFManager
                     7 => vm.Unlock,
                     8 => vm.Watermark,
                     9 => vm.Batch,
+                    10 => vm.PdfToImage,
                     _ => vm.HomeView
                 };
             }
@@ -120,6 +121,12 @@ namespace PDFManager
         {
             if (TryGetSingleDroppedPdf(e, "watermark", out string file))
                 await ViewModel.Watermark.UpdateFileAsync(file);
+        }
+
+        private async void pdfToImageTab_Drop(object sender, DragEventArgs e)
+        {
+            if (!ViewModel.PdfToImage.IsBusy && TryGetSingleDroppedPdf(e, "convert", out string file))
+                await ViewModel.PdfToImage.UpdateFileAsync(file);
         }
 
         // Batch takes any mix of PDFs and folders

@@ -51,6 +51,7 @@ namespace PDFManager.Tests
             public Document(int pageCount) => PageCount = pageCount;
             public int PageCount { get; }
             public Task<BitmapSource> RenderPageAsync(int pageNumber, int width) => Task.FromResult(Pixel);
+            public Task<BitmapSource> RenderPageAtDpiAsync(int pageNumber, int dpi, int maxSide) => Task.FromResult(Pixel);
             public void Dispose() { }
         }
     }

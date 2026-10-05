@@ -48,8 +48,44 @@ namespace PDFManager.Services
             public async Task<BitmapSource> RenderPageAsync(int pageNumber, int width)
             {
                 using PdfPage page = _document.GetPage((uint)(pageNumber - 1));
+                return await RenderAsync(page, width);
+            }
+
+            public async Task<BitmapSource> RenderPageAtDpiAsync(int pageNumber, int dpi, int maxSide)
+            {
+                using PdfPage page = _document.GetPage((uint)(pageNumber - 1));
+                // page.Size is in 1/96 inch, with the page's rotation applied
+                double width = page.Size.Width / 96 * dpi, height = page.Size.Height / 96 * dpi;
+                double shrink = Math.Min(1, maxSide / Math.Max(width, height));
+                int pixelWidth = Math.Max(1, (int)Math.Round(width * shrink));
+                int pixelHeight = Math.Max(1, (int)Math.Round(height * shrink));
+
+                // Windows multiplies the requested size by the display scale, which is only known
+                // from a rendered bitmap: the first render of the document measures it, against the
+                // whole number of pixels actually requested, and later renders divide it out.
+                // Both sides are given, because a height derived from a rounded width drifts
+                uint requested = (uint)Math.Round(pixelWidth / _displayScale);
+                BitmapSource image = await RenderAsync(page, requested, pixelHeight / _displayScale);
+                if (Math.Abs(image.PixelWidth - pixelWidth) > 1)
+                {
+                    _displayScale = (double)image.PixelWidth / requested;
+                    image = await RenderAsync(page, pixelWidth / _displayScale, pixelHeight / _displayScale);
+                }
+                return image;
+            }
+
+            // Measured per document, which renders one page at a time
+            private double _displayScale = 1;
+
+            // A height of 0 lets Windows keep the page's proportions
+            private static async Task<BitmapSource> RenderAsync(PdfPage page, double width, double height = 0)
+            {
                 using var png = new InMemoryRandomAccessStream();
-                await page.RenderToStreamAsync(png, new PdfPageRenderOptions { DestinationWidth = (uint)width });
+                await page.RenderToStreamAsync(png, new PdfPageRenderOptions
+                {
+                    DestinationWidth = (uint)Math.Round(width),
+                    DestinationHeight = (uint)Math.Round(height)
+                });
 
                 using Stream pngStream = png.AsStreamForRead();
                 var image = new BitmapImage();

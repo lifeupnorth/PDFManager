@@ -14,6 +14,7 @@ namespace PDFManager.ViewModels
         public UnlockViewModel Unlock { get; }
         public WatermarkViewModel Watermark { get; }
         public BatchViewModel Batch { get; }
+        public PdfToImageViewModel PdfToImage { get; }
         public HomeViewModel HomeView { get; }
 
         // The view model shown in the main area; its DataTemplate supplies the view
@@ -35,6 +36,7 @@ namespace PDFManager.ViewModels
             Unlock = new UnlockViewModel(pdfService);
             Watermark = new WatermarkViewModel(pdfService, pageRenderer);
             Batch = new BatchViewModel(pdfService);
+            PdfToImage = new PdfToImageViewModel(pdfService, pageRenderer);
             HomeView = new HomeViewModel();
             _currentView = HomeView;
         }
