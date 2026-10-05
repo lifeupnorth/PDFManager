@@ -1,0 +1,11 @@
+<Project>
+
+  <!-- Applies to every project in the repo: the app, the tests and the harness.
+       All of them build with no nullable warnings, so any new one fails the build rather than
+       piling up. Other warnings stay warnings: as errors, a NuGet vulnerability advisory
+       published for a dependency would break the build without any change here. -->
+  <PropertyGroup>
+    <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
+  </PropertyGroup>
+
+</Project>
