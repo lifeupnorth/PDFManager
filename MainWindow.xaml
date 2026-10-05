@@ -126,7 +126,19 @@
                 <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
                     <DockPanel>
                         <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunSplitCommand}" Content="Split PDF" Style="{StaticResource PrimaryButton}"/>
+                            <Button Command="{Binding RunSplitCommand}">
+                                <Button.Style>
+                                    <!-- Content lives in the style so the busy trigger can replace it -->
+                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                        <Setter Property="Content" Value="Split PDF"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                <Setter Property="Content" Value="Splitting..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="24,24,24,16">
@@ -177,7 +189,19 @@
                 <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
                     <DockPanel>
                         <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunMergeCommand}" Content="Merge PDF" Style="{StaticResource PrimaryButton}"/>
+                            <Button Command="{Binding RunMergeCommand}">
+                                <Button.Style>
+                                    <!-- Content lives in the style so the busy trigger can replace it -->
+                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                        <Setter Property="Content" Value="Merge PDF"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                <Setter Property="Content" Value="Merging..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="24,24,24,16">
@@ -240,7 +264,19 @@
                 <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
                     <DockPanel>
                         <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunRotateCommand}" Content="Rotate PDF" Style="{StaticResource PrimaryButton}"/>
+                            <Button Command="{Binding RunRotateCommand}">
+                                <Button.Style>
+                                    <!-- Content lives in the style so the busy trigger can replace it -->
+                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                        <Setter Property="Content" Value="Rotate PDF"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                <Setter Property="Content" Value="Rotating..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="24,24,24,16">
