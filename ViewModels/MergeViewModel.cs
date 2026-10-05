@@ -251,4 +251,4 @@ namespace PDFManager.ViewModels
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
         }
     }
-}
+}
