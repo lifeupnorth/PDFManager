@@ -46,12 +46,12 @@
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Cursor" Value="Hand"/>
             <!-- Compact enough for every tool to fit the sidebar at the default window height -->
-            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Margin" Value="0"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="bd" Background="Transparent" CornerRadius="0,6,6,0" Margin="0,0,10,0" Height="36" SnapsToDevicePixels="True">
+                        <Border x:Name="bd" Background="Transparent" CornerRadius="0,6,6,0" Margin="0,0,10,0" Height="34" SnapsToDevicePixels="True">
                             <Grid>
                                 <Rectangle x:Name="indicator" Width="3" Fill="{StaticResource AccentBrush}" HorizontalAlignment="Left" Visibility="Collapsed"/>
                                 <ContentPresenter Margin="22,0,12,0" VerticalAlignment="Center"/>
@@ -417,6 +417,7 @@
         <Geometry x:Key="IconWatermark">M6,2 H14 L20,8 V22 H6 Z M9,18.5 L17,10.5</Geometry>
         <Geometry x:Key="IconBatch">M9,7 H19 V21 H9 Z M5,17 V3 H15</Geometry>
         <Geometry x:Key="IconImage">M4,5 H20 V19 H4 Z M4,16 L9,11 L13,15 L16,12 L20,16 M17,8.5 A1.5,1.5 0 1 1 14,8.5 A1.5,1.5 0 1 1 17,8.5 Z</Geometry>
+        <Geometry x:Key="IconImageToPdf">M6,2 H14 L20,8 V22 H6 Z M14,2 V8 H20 M8.5,18.5 L11,15 L13,17.5 L15,15 L17.5,18.5 Z</Geometry>
         <Geometry x:Key="IconFile">M6,2 H14 L20,8 V22 H6 Z M14,2 V8 H20</Geometry>
 
         <Style x:Key="Icon" TargetType="Path">

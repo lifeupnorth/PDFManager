@@ -26,6 +26,7 @@ namespace PDFManager.Tests
         public void ProtectPdf(string sourcePath, string outputPath, string password) => throw new NotSupportedException();
         public void UnlockPdf(string sourcePath, string outputPath, string password) => throw new NotSupportedException();
         public void AddWatermark(string sourcePath, string outputPath, WatermarkOptions options) => throw new NotSupportedException();
+        public void ImagesToPdf(IList<string> imagePaths, string outputPath, ImagePageOptions options) => throw new NotSupportedException();
         public ISet<int> ParsePageRanges(string spec, int totalPages) => throw new NotSupportedException();
     }
 

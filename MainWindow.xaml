@@ -99,6 +99,20 @@
             </DockPanel>
         </DataTemplate>
 
+        <!-- Row template for an image in the Image to PDF list: its preview, name and location -->
+        <DataTemplate x:Key="ImageItemTemplate">
+            <DockPanel>
+                <Border DockPanel.Dock="Left" Width="56" Height="56" CornerRadius="6" Background="{StaticResource InputBrush}" Margin="0,0,14,0">
+                    <Image Source="{Binding Thumbnail}" Stretch="Uniform" Margin="4" RenderOptions.BitmapScalingMode="HighQuality"/>
+                </Border>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding Details}" Foreground="{StaticResource AccentHoverBrush}" FontSize="12" VerticalAlignment="Center" Margin="14,0,0,0"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource FileName}" Text="{Binding FileName}"/>
+                    <TextBlock Style="{StaticResource FilePath}" Text="{Binding Path}"/>
+                </StackPanel>
+            </DockPanel>
+        </DataTemplate>
+
         <!-- DataTemplates for ViewModels -->
         <DataTemplate DataType="{x:Type vm:HomeViewModel}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -189,6 +203,14 @@
                                     <Path Style="{StaticResource Icon}" Data="{StaticResource IconImage}" Stroke="{StaticResource ConvertIconBrush}"/>
                                 </Border>
                                 <TextBlock Text="PDF to image" Style="{StaticResource CardLabel}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolCard}" Tag="11" Click="OpenTool_Click" AutomationProperties.Name="Image to PDF">
+                            <StackPanel>
+                                <Border Style="{StaticResource IconTile}" Background="{StaticResource ConvertTileBrush}">
+                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconImageToPdf}" Stroke="{StaticResource ConvertIconBrush}"/>
+                                </Border>
+                                <TextBlock Text="Image to PDF" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                     </WrapPanel>
@@ -1094,6 +1116,85 @@
                 </Border>
             </Grid>
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ImagesToPdfViewModel}">
+            <Grid Background="{StaticResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="imagesToPdfTab_Drop">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="320"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Margin="28">
+                    <Grid Visibility="{Binding HasItems, ElementName=lstImages, Converter={StaticResource InverseBoolToVisibility}}">
+                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{StaticResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="Image to PDF" Style="{StaticResource PageTitle}"/>
+                            <TextBlock Text="Turn photos and scans into a PDF, one page per image, in the order you choose." Style="{StaticResource PageSubtitle}"/>
+                            <Button Command="{Binding AddImagesCommand}" Content="Select images" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="or drop images or a folder here. JPEG, PNG, BMP, GIF and TIFF." Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <DockPanel Visibility="{Binding HasItems, ElementName=lstImages, Converter={StaticResource BoolToVisibility}}">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <Button DockPanel.Dock="Right" Content="Add images" Style="{StaticResource SecondaryButton}" Command="{Binding AddImagesCommand}"/>
+                            <TextBlock Text="IMAGES" Style="{StaticResource SectionLabel}" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <TextBlock DockPanel.Dock="Bottom" Text="Each image becomes a page, top to bottom. Photos are turned upright using their camera orientation." Style="{StaticResource Hint}" TextAlignment="Left" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        <ListBox x:Name="lstImages" ItemsSource="{Binding Images}" SelectionMode="Extended" Style="{StaticResource FileList}" ItemTemplate="{StaticResource ImageItemTemplate}" AutomationProperties.Name="Images to convert"/>
+                    </DockPanel>
+                </Grid>
+
+                <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                            <Button Command="{Binding RunCreateCommand}">
+                                <Button.Style>
+                                    <!-- Content lives in the style so the busy trigger can replace it -->
+                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                        <Setter Property="Content" Value="Create PDF"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                <Setter Property="Content" Value="Creating..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="24,24,24,16">
+                                <TextBlock Text="Image to PDF" Style="{StaticResource SidebarTitle}"/>
+
+                                <TextBlock Text="ORDER" Style="{StaticResource SectionLabel}"/>
+                                <UniformGrid Columns="2">
+                                    <Button Command="{Binding MoveUpCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstImages}" Content="Move up" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0"/>
+                                    <Button Command="{Binding MoveDownCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstImages}" Content="Move down" Style="{StaticResource SecondaryButton}" Margin="4,0,0,0"/>
+                                </UniformGrid>
+                                <Button Command="{Binding RemoveImagesCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstImages}" Content="Remove selected" Style="{StaticResource SecondaryButton}" Margin="0,8,0,0" HorizontalAlignment="Stretch"/>
+
+                                <TextBlock Text="PAGE SIZE" Style="{StaticResource SectionLabel}"/>
+                                <RadioButton Content="Same as each image" IsChecked="{Binding PageSize, Converter={StaticResource RadioValue}, ConverterParameter=SameAsImage}" Style="{StaticResource OptionRadio}" GroupName="ImagePageSize"/>
+                                <UniformGrid Columns="2">
+                                    <RadioButton Content="A4" IsChecked="{Binding PageSize, Converter={StaticResource RadioValue}, ConverterParameter=A4}" Style="{StaticResource OptionRadio}" GroupName="ImagePageSize" Margin="0,0,4,0"/>
+                                    <RadioButton Content="Letter" IsChecked="{Binding PageSize, Converter={StaticResource RadioValue}, ConverterParameter=Letter}" Style="{StaticResource OptionRadio}" GroupName="ImagePageSize" Margin="4,0,0,0"/>
+                                </UniformGrid>
+                                <Label Style="{StaticResource HintLabel}" Content="A4 and Letter pages turn to match each image, which is scaled to fit."/>
+
+                                <TextBlock Text="MARGIN" Style="{StaticResource SectionLabel}"/>
+                                <UniformGrid Columns="2" IsEnabled="{Binding CanHaveMargin}">
+                                    <RadioButton Content="None" IsChecked="{Binding Margin, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="ImageMargin" Margin="0,0,4,0"/>
+                                    <RadioButton Content="Half an inch" IsChecked="{Binding Margin, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="ImageMargin" Margin="4,0,0,0"/>
+                                </UniformGrid>
+
+                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -1182,6 +1283,12 @@
                             <StackPanel Orientation="Horizontal">
                                 <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconImage}"/>
                                 <TextBlock Text="PDF to image" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="navImagesToPdf" AutomationProperties.Name="Image to PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="11" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconImageToPdf}"/>
+                                <TextBlock Text="Image to PDF" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton>
 

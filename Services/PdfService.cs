@@ -392,6 +392,81 @@ namespace PDFManager.Services
             return true;
         }
 
+        public void ImagesToPdf(IList<string> imagePaths, string outputPath, ImagePageOptions options)
+        {
+            string tempPath = outputPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var writer = new PdfWriter(tempPath, new WriterProperties().UseSmartMode()))
+                using (var doc = new PdfDocument(writer))
+                {
+                    foreach (string imagePath in imagePaths)
+                        AddImagePage(doc, imagePath, options);
+                }
+
+                File.Move(tempPath, outputPath, overwrite: true);
+            }
+            finally
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            }
+        }
+
+        private const float MarginPoints = 36; // half an inch
+
+        private static void AddImagePage(PdfDocument doc, string imagePath, ImagePageOptions options)
+        {
+            iText.IO.Image.ImageData image;
+            try
+            {
+                image = iText.IO.Image.ImageDataFactory.Create(imagePath);
+            }
+            catch (Exception ex) when (ex is iText.Commons.Exceptions.ITextException or IOException)
+            {
+                throw new InvalidOperationException($"'{Path.GetFileName(imagePath)}' is not a supported image, or the file is damaged.");
+            }
+
+            // Size as shown: the stored pixels turned upright, at the image's own resolution (96 DPI if it has none)
+            int rotation = ImageFiles.ReadRotation(imagePath);
+            bool sideways = rotation % 180 != 0;
+            float dpiX = image.GetDpiX() > 0 ? image.GetDpiX() : 96, dpiY = image.GetDpiY() > 0 ? image.GetDpiY() : 96;
+            float widthPoints = image.GetWidth() * 72f / dpiX, heightPoints = image.GetHeight() * 72f / dpiY;
+            float shownWidth = sideways ? heightPoints : widthPoints, shownHeight = sideways ? widthPoints : heightPoints;
+
+            PageSize pageSize;
+            float x, y, drawWidth, drawHeight;
+            if (options.PageSize == ImagePageSize.SameAsImage)
+            {
+                pageSize = new PageSize(shownWidth, shownHeight);
+                (x, y, drawWidth, drawHeight) = (0, 0, shownWidth, shownHeight);
+            }
+            else
+            {
+                // A4 or Letter, turned to match the image, with the image scaled to fit and centred
+                PageSize paper = options.PageSize == ImagePageSize.A4 ? PageSize.A4 : PageSize.LETTER;
+                pageSize = shownWidth > shownHeight ? paper.Rotate() : paper;
+                float margin = options.Margin ? MarginPoints : 0;
+                float scale = Math.Min((pageSize.GetWidth() - 2 * margin) / shownWidth, (pageSize.GetHeight() - 2 * margin) / shownHeight);
+                drawWidth = shownWidth * scale;
+                drawHeight = shownHeight * scale;
+                x = (pageSize.GetWidth() - drawWidth) / 2;
+                y = (pageSize.GetHeight() - drawHeight) / 2;
+            }
+
+            // Map the image's unit square onto the box (x, y, drawWidth, drawHeight), turned clockwise
+            // by rotation: at 90 the stored top edge becomes the right edge, and so on
+            var (a, b, c, d, e, f) = rotation switch
+            {
+                90 => (0f, -drawHeight, drawWidth, 0f, x, y + drawHeight),
+                180 => (-drawWidth, 0f, 0f, -drawHeight, x + drawWidth, y + drawHeight),
+                270 => (0f, drawHeight, -drawWidth, 0f, x + drawWidth, y),
+                _ => (drawWidth, 0f, 0f, drawHeight, x, y)
+            };
+            var canvas = new PdfCanvas(doc.AddNewPage(pageSize));
+            canvas.AddImageWithTransformationMatrix(image, a, b, c, d, e, f);
+            canvas.Release();
+        }
+
         private const int AllPermissions = EncryptionConstants.ALLOW_PRINTING | EncryptionConstants.ALLOW_DEGRADED_PRINTING
             | EncryptionConstants.ALLOW_MODIFY_CONTENTS | EncryptionConstants.ALLOW_ASSEMBLY | EncryptionConstants.ALLOW_COPY
             | EncryptionConstants.ALLOW_SCREENREADERS | EncryptionConstants.ALLOW_MODIFY_ANNOTATIONS | EncryptionConstants.ALLOW_FILL_IN;

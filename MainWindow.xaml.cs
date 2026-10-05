@@ -40,7 +40,7 @@ namespace PDFManager
         {
             if (sender is FrameworkElement fe && int.TryParse(fe.Tag?.ToString(), out int index))
             {
-                var navItems = new[] { navHome, navSplit, navMerge, navRotate, navExtract, navMetadata, navProtect, navUnlock, navWatermark, navBatch, navPdfToImage };
+                var navItems = new[] { navHome, navSplit, navMerge, navRotate, navExtract, navMetadata, navProtect, navUnlock, navWatermark, navBatch, navPdfToImage, navImagesToPdf };
                 if (index >= 0 && index < navItems.Length)
                     navItems[index].IsChecked = true;
             }
@@ -64,6 +64,7 @@ namespace PDFManager
                     8 => vm.Watermark,
                     9 => vm.Batch,
                     10 => vm.PdfToImage,
+                    11 => vm.ImagesToPdf,
                     _ => vm.HomeView
                 };
             }
@@ -127,6 +128,14 @@ namespace PDFManager
         {
             if (!ViewModel.PdfToImage.IsBusy && TryGetSingleDroppedPdf(e, "convert", out string file))
                 await ViewModel.PdfToImage.UpdateFileAsync(file);
+        }
+
+        // Image to PDF takes images and folders of images
+        private void imagesToPdfTab_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0 && !ViewModel.ImagesToPdf.IsBusy
+                && ViewModel.ImagesToPdf.AddPaths(paths) == 0)
+                MessageBox.Show("No new images were found in what you dropped. Supported formats are JPEG, PNG, BMP, GIF and TIFF.", "No Images Added", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         // Batch takes any mix of PDFs and folders
