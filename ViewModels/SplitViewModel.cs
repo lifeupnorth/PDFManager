@@ -98,14 +98,24 @@ namespace PDFManager.ViewModels
                     return;
             }
 
+            // Read the input here: the work runs on a background thread
+            string sourcePath = SourcePath;
             try
             {
                 IsBusy = true;
-                await Task.Run(() => _pdfService.SplitPdf(SourcePath, pageNum, Path.GetDirectoryName(SourcePath)!));
+                await Task.Run(() => _pdfService.SplitPdf(sourcePath, pageNum, Path.GetDirectoryName(sourcePath)!));
 
                 var openFolder = MessageBox.Show("PDF split successfully!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
                 if (openFolder == MessageBoxResult.Yes)
                     ShowInExplorer(string.Format(destPattern, 1));
+            }
+            catch (iText.Kernel.Exceptions.BadPasswordException)
+            {
+                MessageBox.Show("This PDF is password-protected and cannot be split.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch (iText.IO.Exceptions.IOException)
+            {
+                MessageBox.Show("This file is not a valid PDF or is corrupted.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch (Exception ex)
             {
