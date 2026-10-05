@@ -24,6 +24,9 @@
     <SolidColorBrush x:Key="InputBrush" Color="#1F1F1F" po:Freeze="True"/>
     <SolidColorBrush x:Key="BorderBrush" Color="#333333" po:Freeze="True"/>
     <SolidColorBrush x:Key="BorderStrongBrush" Color="#4A4A4A" po:Freeze="True"/>
+    <!-- Text and password boxes: their border is what shows where to type, so it gets
+         at least 3:1 against the box and everything around it -->
+    <SolidColorBrush x:Key="InputBorderBrush" Color="#76767E" po:Freeze="True"/>
     <SolidColorBrush x:Key="ThumbnailFrameBrush" Color="#2A2A2A" po:Freeze="True"/>
     <!-- The page shown in the watermark preview -->
     <SolidColorBrush x:Key="PaperBrush" Color="#F4F4F4" po:Freeze="True"/>

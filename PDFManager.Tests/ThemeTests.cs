@@ -132,11 +132,28 @@ namespace PDFManager.Tests
             Assert.Contains("<Style TargetType=\"ScrollBar\">", Read("App.xaml"));
         }
 
-        [Fact]
-        public void Light_input_borders_are_visible_against_the_input()
+        [Theory]
+        [InlineData("Dark")]
+        [InlineData("Light")]
+        public void Text_box_borders_show_where_to_type(string theme)
         {
-            var c = Palette("Light");
-            Assert.True(Contrast(c["BorderStrongBrush"], c["InputBrush"]) >= 3);
+            // The box's own fill, and the surfaces text boxes sit on
+            var c = Palette(theme);
+            foreach (string surface in new[] { "InputBrush", "PanelBrush", "WindowBrush", "CardBrush" })
+                Assert.True(Contrast(c["InputBorderBrush"], c[surface]) >= 3,
+                    $"{theme}: the text box border is {Contrast(c["InputBorderBrush"], c[surface]):0.00}:1 against {surface}");
+        }
+
+        [Fact]
+        public void Text_and_password_boxes_use_the_input_border()
+        {
+            string app = Read("App.xaml");
+            foreach (string style in new[] { "Input", "PasswordInput" })
+            {
+                int start = app.IndexOf($"<Style x:Key=\"{style}\"", StringComparison.Ordinal);
+                string block = app.Substring(start, app.IndexOf("</Style>", start, StringComparison.Ordinal) - start);
+                Assert.Contains("{DynamicResource InputBorderBrush}", block);
+            }
         }
     }
 

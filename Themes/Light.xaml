@@ -26,6 +26,9 @@
     <SolidColorBrush x:Key="BorderBrush" Color="#E1E1E7" po:Freeze="True"/>
     <SolidColorBrush x:Key="BorderStrongBrush" Color="#8A8A94" po:Freeze="True"/>
     <!-- Pages are white, so their thumbnails need a grey frame to stand out from white cards -->
+    <!-- Text and password boxes: their border is what shows where to type, so it gets
+         at least 3:1 against the box and everything around it -->
+    <SolidColorBrush x:Key="InputBorderBrush" Color="#8A8A94" po:Freeze="True"/>
     <SolidColorBrush x:Key="ThumbnailFrameBrush" Color="#E6E6EB" po:Freeze="True"/>
     <SolidColorBrush x:Key="PaperBrush" Color="#FFFFFF" po:Freeze="True"/>
     <SolidColorBrush x:Key="PaperBorderBrush" Color="#D5D5DC" po:Freeze="True"/>

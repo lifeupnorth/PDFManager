@@ -255,7 +255,7 @@
                 <Setter Property="Height" Value="38"/>
                 <Setter Property="Padding" Value="10,0"/>
                 <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
-                <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="Template">
                     <Setter.Value>
@@ -285,7 +285,7 @@
                 <Setter Property="Height" Value="38"/>
                 <Setter Property="Padding" Value="10,0"/>
                 <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
-                <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="Template">
                     <Setter.Value>
