@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A startup hook loaded into the real PDFManager.exe by run.ps1; see README.md -->
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- Compiled against the app, but runs inside it, so the app's own copy is used -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\PDFManager.csproj" Private="false" />
+  </ItemGroup>
+
+</Project>

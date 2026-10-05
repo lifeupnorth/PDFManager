@@ -15,11 +15,11 @@
     <Resource Include="app.ico"/>
   </ItemGroup>
 
-  <!-- The test project lives below this folder; keep its sources out of the app -->
+  <!-- The test and tool projects live below this folder; keep their sources out of the app -->
   <ItemGroup>
-    <Compile Remove="PDFManager.Tests\**" />
-    <None Remove="PDFManager.Tests\**" />
-    <Page Remove="PDFManager.Tests\**" />
+    <Compile Remove="PDFManager.Tests\**;tools\**" />
+    <None Remove="PDFManager.Tests\**;tools\**" />
+    <Page Remove="PDFManager.Tests\**;tools\**" />
   </ItemGroup>
 
   <ItemGroup>
