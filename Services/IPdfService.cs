@@ -17,6 +17,7 @@ namespace PDFManager.Services
         PdfProtection GetProtection(string path);
         void ProtectPdf(string sourcePath, string outputPath, string password);
         void UnlockPdf(string sourcePath, string outputPath, string password);
+        void AddWatermark(string sourcePath, string outputPath, WatermarkOptions options);
         ISet<int> ParsePageRanges(string spec, int totalPages);
     }
 }

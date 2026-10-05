@@ -342,6 +342,7 @@
         <Geometry x:Key="IconTag">M3,3 H11 L21,13 L13,21 L3,11 Z M9,7.5 A1.5,1.5 0 1 1 6,7.5 A1.5,1.5 0 1 1 9,7.5 Z</Geometry>
         <Geometry x:Key="IconLock">M5,11 H19 V21 H5 Z M8,11 V7.5 A4,4 0 0 1 16,7.5 V11 M12,15 V17</Geometry>
         <Geometry x:Key="IconUnlock">M5,11 H19 V21 H5 Z M8,11 V7.5 A4,4 0 0 1 15.6,5.8 M12,15 V17</Geometry>
+        <Geometry x:Key="IconWatermark">M6,2 H14 L20,8 V22 H6 Z M9,18.5 L17,10.5</Geometry>
         <Geometry x:Key="IconFile">M6,2 H14 L20,8 V22 H6 Z M14,2 V8 H20</Geometry>
 
         <Style x:Key="Icon" TargetType="Path">

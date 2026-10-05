@@ -99,6 +99,14 @@
                                 <TextBlock Text="Edit metadata" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
+                        <Button Style="{StaticResource ToolCard}" Tag="8" Click="OpenTool_Click" AutomationProperties.Name="Add watermark">
+                            <StackPanel>
+                                <Border Style="{StaticResource IconTile}" Background="{StaticResource EditTileBrush}">
+                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconWatermark}" Stroke="{StaticResource EditIconBrush}"/>
+                                </Border>
+                                <TextBlock Text="Add watermark" Style="{StaticResource CardLabel}"/>
+                            </StackPanel>
+                        </Button>
                     </WrapPanel>
 
                     <TextBlock Text="PDF security" Style="{StaticResource CategoryHeading}" Margin="0,34,0,12"/>
@@ -637,6 +645,115 @@
                 </Border>
             </Grid>
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:WatermarkViewModel}">
+            <Grid Background="{StaticResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="watermarkTab_Drop">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="320"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Margin="28">
+                    <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
+                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{StaticResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="Add watermark" Style="{StaticResource PageTitle}"/>
+                            <TextBlock Text="Stamp text such as CONFIDENTIAL or DRAFT across the pages of a PDF." Style="{StaticResource PageSubtitle}"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
+                            <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16,14">
+                                <DockPanel>
+                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource EditTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
+                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource EditIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
+                                    </Border>
+                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
+                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+
+                            <TextBlock Text="PREVIEW" Style="{StaticResource SectionLabel}"/>
+                            <!-- An A4 sheet with the watermark laid out as the service draws it -->
+                            <Border Width="210" Height="297" Background="#F4F4F4" CornerRadius="3" HorizontalAlignment="Left" ClipToBounds="True" AutomationProperties.Name="Watermark preview">
+                                <Canvas>
+                                    <Grid Canvas.Left="{Binding PreviewTextLeft}" Canvas.Top="{Binding PreviewTextTop}" Width="{Binding PreviewTextWidth}" Height="{Binding PreviewTextMaxHeight}"
+                                          RenderTransformOrigin="0.5,0.5" Opacity="{Binding PreviewOpacity}">
+                                        <Grid.RenderTransform>
+                                            <RotateTransform Angle="{Binding PreviewAngle}"/>
+                                        </Grid.RenderTransform>
+                                        <Viewbox Stretch="Uniform">
+                                            <TextBlock Text="{Binding WatermarkText}" FontFamily="Arial" FontWeight="Bold" Foreground="#737373"/>
+                                        </Viewbox>
+                                    </Grid>
+                                </Canvas>
+                            </Border>
+                            <TextBlock Text="Shown on an A4 page. The watermark is sized to fit each page of the PDF." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                            <Button Command="{Binding RunWatermarkCommand}">
+                                <Button.Style>
+                                    <!-- Content lives in the style so the busy trigger can replace it -->
+                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                        <Setter Property="Content" Value="Add watermark"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                <Setter Property="Content" Value="Adding watermark..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="24,24,24,16">
+                                <TextBlock Text="Add watermark" Style="{StaticResource SidebarTitle}"/>
+
+                                <TextBlock Text="TEXT" Style="{StaticResource SectionLabel}"/>
+                                <TextBox Text="{Binding WatermarkText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Watermark text" Style="{StaticResource Input}"/>
+
+                                <TextBlock Text="DIRECTION" Style="{StaticResource SectionLabel}"/>
+                                <UniformGrid Columns="2">
+                                    <RadioButton Content="Diagonal" IsChecked="{Binding IsDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="WatermarkDirection" Margin="0,0,4,0"/>
+                                    <RadioButton Content="Horizontal" IsChecked="{Binding IsDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="WatermarkDirection" Margin="4,0,0,0"/>
+                                </UniformGrid>
+
+                                <TextBlock Text="OPACITY" Style="{StaticResource SectionLabel}"/>
+                                <UniformGrid Columns="3">
+                                    <RadioButton Content="Light" IsChecked="{Binding OpacityPercent, Converter={StaticResource RadioValue}, ConverterParameter=15}" Style="{StaticResource OptionRadio}" GroupName="WatermarkOpacity" Margin="0,0,4,0"/>
+                                    <RadioButton Content="Medium" IsChecked="{Binding OpacityPercent, Converter={StaticResource RadioValue}, ConverterParameter=30}" Style="{StaticResource OptionRadio}" GroupName="WatermarkOpacity" Margin="2,0,2,0"/>
+                                    <RadioButton Content="Strong" IsChecked="{Binding OpacityPercent, Converter={StaticResource RadioValue}, ConverterParameter=50}" Style="{StaticResource OptionRadio}" GroupName="WatermarkOpacity" Margin="4,0,0,0"/>
+                                </UniformGrid>
+
+                                <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
+                                <UniformGrid Columns="2">
+                                    <RadioButton Content="All pages" IsChecked="{Binding AllPages}" Style="{StaticResource OptionRadio}" GroupName="WatermarkPages" Margin="0,0,4,8"/>
+                                    <RadioButton Content="Specific pages" Style="{StaticResource OptionRadio}" GroupName="WatermarkPages" Margin="4,0,0,8"/>
+                                </UniformGrid>
+                                <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecEnabled}" AutomationProperties.Name="Pages to watermark" AutomationProperties.HelpText="{Binding PageCountInfo}" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
+                                <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
+
+                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -695,6 +812,12 @@
                         <StackPanel Orientation="Horizontal">
                             <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconTag}"/>
                             <TextBlock Text="Edit metadata" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="navWatermark" AutomationProperties.Name="Add watermark" Style="{StaticResource NavItem}" GroupName="Nav" Tag="8" Checked="Nav_Checked">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconWatermark}"/>
+                            <TextBlock Text="Add watermark" VerticalAlignment="Center"/>
                         </StackPanel>
                     </RadioButton>
 

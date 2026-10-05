@@ -9,7 +9,8 @@ using PDFManager.ViewModels;
 namespace PDFManager.Tests
 {
     // Covers the view-model paths that never show a MessageBox: the page-count hints,
-    // default output paths, metadata loading, protection checks and merge-list de-duplication
+    // default output paths, metadata loading, protection checks, the watermark preview and
+    // merge-list de-duplication
     public class ViewModelTests
     {
         private const string Folder = @"C:\Docs";
@@ -311,6 +312,73 @@ namespace PDFManager.Tests
             Assert.Equal("Enter the password that opens this PDF.", vm.StatusInfo);
         }
 
+        [Theory]
+        [InlineData(1, "Document has 1 page. Example: 1, 3, 5-7")]
+        [InlineData(3, "Document has 3 pages. Example: 1, 3, 5-7")]
+        public async Task Watermark_hint_gives_the_page_count_and_an_example(int pages, string hint)
+        {
+            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => pages });
+
+            await vm.UpdateFileAsync(Path.Combine(Folder, "Report.pdf"));
+
+            Assert.Equal(hint, vm.PageCountInfo);
+            Assert.Equal(Path.Combine(Folder, "Report_watermarked.pdf"), vm.OutputPath);
+        }
+
+        [Fact]
+        public async Task Watermark_hint_flags_a_password_protected_file()
+        {
+            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") });
+
+            await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
+
+            Assert.Equal("This PDF is password-protected and cannot be watermarked.", vm.PageCountInfo);
+        }
+
+        [Fact]
+        public void Watermark_defaults_to_a_medium_diagonal_CONFIDENTIAL_on_all_pages()
+        {
+            var vm = new WatermarkViewModel(new FakePdfService());
+
+            Assert.Equal(("CONFIDENTIAL", true, 30, true), (vm.WatermarkText, vm.IsDiagonal, vm.OpacityPercent, vm.AllPages));
+            Assert.False(vm.IsPageSpecEnabled);
+        }
+
+        [Fact]
+        public void Watermark_preview_follows_the_direction_and_opacity()
+        {
+            var vm = new WatermarkViewModel(new FakePdfService());
+            var changed = new List<string?>();
+            vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            // Diagonal: corner to corner of the A4 preview, rotated counter-clockwise on screen
+            Assert.Equal(-Math.Atan2(297, 210) * 180 / Math.PI, vm.PreviewAngle, 6);
+            Assert.Equal(0.75 * Math.Sqrt(210 * 210 + 297 * 297), vm.PreviewTextWidth, 6);
+            Assert.Equal(105, vm.PreviewTextLeft + vm.PreviewTextWidth / 2, 6); // centred
+
+            vm.IsDiagonal = false;
+            vm.OpacityPercent = 50;
+
+            Assert.Equal(0, vm.PreviewAngle);
+            Assert.Equal(0.75 * 210, vm.PreviewTextWidth, 6);
+            Assert.Equal(105, vm.PreviewTextLeft + vm.PreviewTextWidth / 2, 6);
+            Assert.Equal(0.5, vm.PreviewOpacity);
+            Assert.Subset(new HashSet<string?>(changed), new HashSet<string?> { "PreviewAngle", "PreviewTextWidth", "PreviewTextLeft", "PreviewOpacity" });
+        }
+
+        [Fact]
+        public void Watermark_page_box_is_enabled_only_for_specific_pages()
+        {
+            var vm = new WatermarkViewModel(new FakePdfService());
+            var changed = new List<string?>();
+            vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            vm.AllPages = false;
+
+            Assert.True(vm.IsPageSpecEnabled);
+            Assert.Contains("IsPageSpecEnabled", changed);
+        }
+
         [Fact]
         public async Task Merge_adds_files_in_order_and_skips_ones_already_listed_ignoring_case()
         {
@@ -341,6 +409,7 @@ namespace PDFManager.Tests
             public PdfProtection GetProtection(string path) => Protection(path);
             public void ProtectPdf(string sourcePath, string outputPath, string password) => throw new NotSupportedException();
             public void UnlockPdf(string sourcePath, string outputPath, string password) => throw new NotSupportedException();
+            public void AddWatermark(string sourcePath, string outputPath, WatermarkOptions options) => throw new NotSupportedException();
             public ISet<int> ParsePageRanges(string spec, int totalPages) => throw new NotSupportedException();
         }
     }

@@ -40,7 +40,7 @@ namespace PDFManager
         {
             if (sender is FrameworkElement fe && int.TryParse(fe.Tag?.ToString(), out int index))
             {
-                var navItems = new[] { navHome, navSplit, navMerge, navRotate, navExtract, navMetadata, navProtect, navUnlock };
+                var navItems = new[] { navHome, navSplit, navMerge, navRotate, navExtract, navMetadata, navProtect, navUnlock, navWatermark };
                 if (index >= 0 && index < navItems.Length)
                     navItems[index].IsChecked = true;
             }
@@ -61,6 +61,7 @@ namespace PDFManager
                     5 => vm.Metadata,
                     6 => vm.Protect,
                     7 => vm.Unlock,
+                    8 => vm.Watermark,
                     _ => vm.HomeView
                 };
             }
@@ -112,6 +113,12 @@ namespace PDFManager
         {
             if (TryGetSingleDroppedPdf(e, "unlock", out string file))
                 await ViewModel.Unlock.UpdateFileAsync(file);
+        }
+
+        private async void watermarkTab_Drop(object sender, DragEventArgs e)
+        {
+            if (TryGetSingleDroppedPdf(e, "watermark", out string file))
+                await ViewModel.Watermark.UpdateFileAsync(file);
         }
 
         private static bool TryGetSingleDroppedPdf(DragEventArgs e, string action, out string file)
