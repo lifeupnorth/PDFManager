@@ -232,5 +232,104 @@ namespace PDFManager.Tests
             Assert.Equal(before, File.ReadAllBytes(output));
             Assert.Empty(Directory.GetFiles(_pdfs.Folder, "*.tmp"));
         }
+
+        [Fact]
+        public void RotatePdf_failing_while_rotating_pages_leaves_no_temp_file_and_the_output_untouched()
+        {
+            string source = _pdfs.CreateWithBrokenPageTree("broken.pdf");
+            string output = _pdfs.CreateNotAPdf("rotated.pdf");
+            byte[] before = File.ReadAllBytes(output);
+
+            Assert.ThrowsAny<iText.Kernel.Exceptions.PdfException>(() => _service.RotatePdf(source, output, "1", 90));
+
+            Assert.Equal(before, File.ReadAllBytes(output));
+            Assert.Empty(Directory.GetFiles(_pdfs.Folder, "*.tmp"));
+        }
+
+        // --- Extract ---
+
+        [Fact]
+        public void ExtractPages_copies_the_listed_pages_in_document_order()
+        {
+            string source = _pdfs.Create("doc.pdf", 101, 102, 103, 104, 105);
+            string output = _pdfs.PathFor("extracted.pdf");
+
+            _service.ExtractPages(source, output, "4, 1-2, 2");
+
+            Assert.Equal(new[] { 101f, 102f, 104f }, TestPdfs.PageWidths(output));
+            Assert.Equal(new[] { 101f, 102f, 103f, 104f, 105f }, TestPdfs.PageWidths(source));
+        }
+
+        [Fact]
+        public void ExtractPages_keeps_each_page_rotation()
+        {
+            string source = _pdfs.Create("doc.pdf", new[] { 101f, 102f }, rotation: 90);
+            string output = _pdfs.PathFor("extracted.pdf");
+
+            _service.ExtractPages(source, output, "2");
+
+            Assert.Equal(new[] { 90 }, TestPdfs.PageRotations(output));
+        }
+
+        [Fact]
+        public void ExtractPages_overwrites_an_existing_output()
+        {
+            string source = _pdfs.CreatePages("doc.pdf", 3);
+            string output = _pdfs.CreatePages("extracted.pdf", 9);
+
+            _service.ExtractPages(source, output, "3");
+
+            Assert.Equal(1, _service.GetPageCount(output));
+            Assert.Empty(Directory.GetFiles(_pdfs.Folder, "*.tmp"));
+        }
+
+        [Fact]
+        public void ExtractPages_with_an_invalid_page_spec_leaves_an_existing_output_untouched()
+        {
+            string source = _pdfs.CreatePages("doc.pdf", 3);
+            string output = _pdfs.CreateNotAPdf("extracted.pdf");
+            byte[] before = File.ReadAllBytes(output);
+
+            var ex = Assert.Throws<InvalidOperationException>(() => _service.ExtractPages(source, output, "2-5"));
+
+            Assert.Equal("Page range \"2-5\" is out of range. The document has 3 pages.", ex.Message);
+            Assert.Equal(before, File.ReadAllBytes(output));
+            Assert.Empty(Directory.GetFiles(_pdfs.Folder, "*.tmp"));
+        }
+
+        [Fact]
+        public void ExtractPages_with_a_protected_source_leaves_no_temp_file_and_the_output_untouched()
+        {
+            string source = _pdfs.CreateEncrypted("locked.pdf");
+            string output = _pdfs.CreateNotAPdf("extracted.pdf");
+            byte[] before = File.ReadAllBytes(output);
+
+            Assert.Throws<iText.Kernel.Exceptions.BadPasswordException>(() => _service.ExtractPages(source, output, "1"));
+
+            Assert.Equal(before, File.ReadAllBytes(output));
+            Assert.Empty(Directory.GetFiles(_pdfs.Folder, "*.tmp"));
+        }
+
+        [Fact]
+        public void ExtractPages_failing_while_copying_pages_leaves_no_temp_file_and_the_output_untouched()
+        {
+            string source = _pdfs.CreateWithBrokenPageTree("broken.pdf");
+            string output = _pdfs.CreateNotAPdf("extracted.pdf");
+            byte[] before = File.ReadAllBytes(output);
+
+            Assert.Throws<iText.Kernel.Exceptions.PdfException>(() => _service.ExtractPages(source, output, "1-2"));
+
+            Assert.Equal(before, File.ReadAllBytes(output));
+            Assert.Empty(Directory.GetFiles(_pdfs.Folder, "*.tmp"));
+        }
+
+        [Fact]
+        public void ExtractPages_throws_iText_IOException_for_a_file_that_is_not_a_pdf()
+        {
+            string source = _pdfs.CreateNotAPdf("notes.pdf");
+
+            Assert.Throws<iText.IO.Exceptions.IOException>(() => _service.ExtractPages(source, _pdfs.PathFor("extracted.pdf"), "1"));
+            Assert.False(File.Exists(_pdfs.PathFor("extracted.pdf")));
+        }
     }
 }

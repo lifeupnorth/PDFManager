@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using iText.Kernel.Geom;
 using iText.Kernel.Pdf;
 using Path = System.IO.Path;
@@ -41,6 +42,31 @@ namespace PDFManager.Tests
             using (var writer = new PdfWriter(path, properties))
             using (var doc = new PdfDocument(writer))
                 AddPages(doc, Enumerable.Range(0, pageCount).Select(i => 100f + i).ToArray(), 0);
+            return path;
+        }
+
+        // A 12-page PDF whose page count still reads correctly but whose pages 1-10 cannot be
+        // loaded, so a tool fails only once it copies pages: after its output writer exists.
+        // iText refuses to write such a file, so the bytes are edited. iText groups the first ten
+        // pages under one /Kids array; its last entry is pointed at an object number that does not
+        // exist, keeping the length so the xref stays valid (the page objects' numbers are two
+        // digits long, so 99 is unused).
+        public string CreateWithBrokenPageTree(string fileName)
+        {
+            string path = CreatePages(fileName, 12);
+            var latin1 = System.Text.Encoding.Latin1;
+            string text = latin1.GetString(File.ReadAllBytes(path));
+
+            var kids = Regex.Match(text, @"/Kids\s*\[[^\]]*\]");
+            var lastKid = Regex.Matches(kids.Value, @"(\d+) 0 R").Last();
+            string missing = new string('9', lastKid.Groups[1].Length);
+            int size = int.Parse(Regex.Match(text, @"/Size (\d+)").Groups[1].Value);
+            if (int.Parse(missing) < size)
+                throw new InvalidOperationException("No unused object number of the same length is available.");
+
+            int at = kids.Index + lastKid.Groups[1].Index;
+            text = text.Substring(0, at) + missing + text.Substring(at + missing.Length);
+            File.WriteAllBytes(path, latin1.GetBytes(text));
             return path;
         }
 

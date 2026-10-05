@@ -134,6 +134,32 @@ namespace PDFManager.Services
             }
         }
 
+        public void ExtractPages(string sourcePath, string outputPath, string pageSpec)
+        {
+            // Like rotating, extraction writes to a temporary file that replaces the output
+            // only on success, so a bad page list never truncates an existing output
+            string tempPath = outputPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var reader = new PdfReader(sourcePath))
+                using (var sourceDoc = new PdfDocument(reader))
+                {
+                    // Parse before creating the writer: there is nothing to clean up if the list is invalid
+                    var pages = new List<int>(ParsePageRanges(pageSpec, sourceDoc.GetNumberOfPages()));
+
+                    using (var writer = new PdfWriter(tempPath, new WriterProperties().UseSmartMode()))
+                    using (var resultDoc = new PdfDocument(writer))
+                        sourceDoc.CopyPagesTo(pages, resultDoc, new PdfPageFormCopier());
+                }
+
+                File.Move(tempPath, outputPath, overwrite: true);
+            }
+            finally
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            }
+        }
+
         public ISet<int> ParsePageRanges(string spec, int totalPages)
         {
             var pages = new SortedSet<int>();
@@ -166,7 +192,7 @@ namespace PDFManager.Services
             }
 
             if (pages.Count == 0)
-                throw new InvalidOperationException("Please enter at least one page to rotate.");
+                throw new InvalidOperationException("Please enter at least one page.");
 
             return pages;
         }

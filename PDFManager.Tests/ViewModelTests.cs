@@ -8,8 +8,8 @@ using PDFManager.ViewModels;
 
 namespace PDFManager.Tests
 {
-    // Covers the view-model paths that never show a MessageBox: the page-count hints
-    // and merge-list de-duplication
+    // Covers the view-model paths that never show a MessageBox: the page-count hints,
+    // default output paths and merge-list de-duplication
     public class ViewModelTests
     {
         private const string Folder = @"C:\Docs";
@@ -104,6 +104,53 @@ namespace PDFManager.Tests
             Assert.Equal("This PDF is password-protected and cannot be rotated.", vm.PageCountInfo);
         }
 
+        [Theory]
+        [InlineData(1, "Document has 1 page. Example: 1, 3, 5-7")]
+        [InlineData(12, "Document has 12 pages. Example: 1, 3, 5-7")]
+        public async Task Extract_hint_gives_the_page_count_and_an_example(int pages, string hint)
+        {
+            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => pages });
+
+            await vm.UpdateFileAsync(Path.Combine(Folder, "Book.pdf"));
+
+            Assert.Equal(hint, vm.PageCountInfo);
+            Assert.Equal(Path.Combine(Folder, "Book_extracted.pdf"), vm.OutputPath);
+        }
+
+        [Fact]
+        public async Task Extract_hint_flags_a_password_protected_file()
+        {
+            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") });
+
+            await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
+
+            Assert.Equal("This PDF is password-protected and pages cannot be extracted from it.", vm.PageCountInfo);
+        }
+
+        [Fact]
+        public async Task Extract_hint_ignores_a_slow_result_for_a_file_that_was_replaced()
+        {
+            using var firstMayFinish = new ManualResetEventSlim();
+            string first = Path.Combine(Folder, "Slow.pdf"), second = Path.Combine(Folder, "Fast.pdf");
+            var vm = new ExtractViewModel(new FakePdfService
+            {
+                PageCount = path =>
+                {
+                    if (path == first)
+                        firstMayFinish.Wait();
+                    return path == first ? 9 : 3;
+                }
+            });
+
+            Task slow = vm.UpdateFileAsync(first);
+            await vm.UpdateFileAsync(second);
+            firstMayFinish.Set();
+            await slow;
+
+            Assert.Equal("Document has 3 pages. Example: 1, 3, 5-7", vm.PageCountInfo);
+            Assert.Equal(Path.Combine(Folder, "Fast_extracted.pdf"), vm.OutputPath);
+        }
+
         [Fact]
         public async Task Merge_adds_files_in_order_and_skips_ones_already_listed_ignoring_case()
         {
@@ -126,6 +173,7 @@ namespace PDFManager.Tests
             public void SplitPdf(string sourcePath, int splitPage, string folderPath) => throw new NotSupportedException();
             public void MergePdfs(string outputPath, List<string> sourceFiles) => throw new NotSupportedException();
             public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees) => throw new NotSupportedException();
+            public void ExtractPages(string sourcePath, string outputPath, string pageSpec) => throw new NotSupportedException();
             public ISet<int> ParsePageRanges(string spec, int totalPages) => throw new NotSupportedException();
         }
     }

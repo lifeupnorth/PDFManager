@@ -31,8 +31,8 @@ namespace PDFManager.Tests
         [InlineData("0", "Page range \"0\" is out of range. The document has 10 pages.")]
         [InlineData("11", "Page range \"11\" is out of range. The document has 10 pages.")]
         [InlineData("8-12", "Page range \"8-12\" is out of range. The document has 10 pages.")]
-        [InlineData("", "Please enter at least one page to rotate.")]
-        [InlineData(" , ; ", "Please enter at least one page to rotate.")]
+        [InlineData("", "Please enter at least one page.")]
+        [InlineData(" , ; ", "Please enter at least one page.")]
         public void Rejects_invalid_specs_with_a_readable_message(string spec, string message)
         {
             var ex = Assert.Throws<InvalidOperationException>(() => _service.ParsePageRanges(spec, totalPages: 10));

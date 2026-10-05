@@ -40,7 +40,7 @@ namespace PDFManager
         {
             if (sender is FrameworkElement fe && int.TryParse(fe.Tag?.ToString(), out int index))
             {
-                var navItems = new[] { navHome, navSplit, navMerge, navRotate };
+                var navItems = new[] { navHome, navSplit, navMerge, navRotate, navExtract };
                 if (index >= 0 && index < navItems.Length)
                     navItems[index].IsChecked = true;
             }
@@ -57,6 +57,7 @@ namespace PDFManager
                     1 => vm.Split,
                     2 => vm.Merge,
                     3 => vm.Rotate,
+                    4 => vm.Extract,
                     _ => vm.HomeView
                 };
             }
@@ -84,6 +85,12 @@ namespace PDFManager
         {
             if (TryGetSingleDroppedPdf(e, "rotate", out string file))
                 await ViewModel.Rotate.UpdateFileAsync(file);
+        }
+
+        private async void extractTab_Drop(object sender, DragEventArgs e)
+        {
+            if (TryGetSingleDroppedPdf(e, "extract pages from", out string file))
+                await ViewModel.Extract.UpdateFileAsync(file);
         }
 
         private static bool TryGetSingleDroppedPdf(DragEventArgs e, string action, out string file)

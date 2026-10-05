@@ -8,6 +8,7 @@ namespace PDFManager.ViewModels
         public SplitViewModel Split { get; }
         public MergeViewModel Merge { get; }
         public RotateViewModel Rotate { get; }
+        public ExtractViewModel Extract { get; }
         public HomeViewModel HomeView { get; }
 
         // The view model shown in the main area; its DataTemplate supplies the view
@@ -23,6 +24,7 @@ namespace PDFManager.ViewModels
             Split = new SplitViewModel(pdfService);
             Merge = new MergeViewModel(pdfService);
             Rotate = new RotateViewModel(pdfService);
+            Extract = new ExtractViewModel(pdfService);
             HomeView = new HomeViewModel();
             _currentView = HomeView;
         }
