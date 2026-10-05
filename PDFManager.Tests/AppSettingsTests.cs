@@ -71,5 +71,40 @@ namespace PDFManager.Tests
             Assert.Equal(("Weekly", "Rotate", "CONFIDENTIAL", "1", ""), (preset.Name, preset.Action, preset.WatermarkText, preset.PageSpec, preset.OutputFolder));
             Assert.Equal(AppTheme.Dark, appearance.Theme);
         }
+
+        // Another window, or a test in another collection, can be reading the file just as it is
+        // replaced. That lost about one save in four, or made the read return the defaults. The
+        // reader pauses a millisecond between reads, far busier than anything real; with no pause
+        // a Debug build keeps the file open so much that even the retries run out
+        [Fact]
+        public void Saves_land_and_reads_never_fall_back_while_another_thread_reads()
+        {
+            AppSettings.Save(new SettingsData { CollapsedSections = { "start" } });
+            int readsWithoutTheSetting = 0;
+            bool stop = false;
+            var reader = new System.Threading.Thread(() =>
+            {
+                while (!System.Threading.Volatile.Read(ref stop))
+                {
+                    if (AppSettings.Load().CollapsedSections.Count == 0)
+                        System.Threading.Interlocked.Increment(ref readsWithoutTheSetting);
+                    System.Threading.Thread.Sleep(1);
+                }
+            });
+            reader.Start();
+
+            int lost = 0;
+            for (int i = 0; i < 200; i++)
+            {
+                AppSettings.Save(new SettingsData { CollapsedSections = { "s" + i } });
+                if (AppSettings.Load().CollapsedSections.SingleOrDefault() != "s" + i)
+                    lost++;
+            }
+            System.Threading.Volatile.Write(ref stop, true);
+            reader.Join();
+
+            Assert.Equal(0, lost);
+            Assert.Equal(0, readsWithoutTheSetting);
+        }
     }
 }

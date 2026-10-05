@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Text.Json.Serialization;
 
 namespace PDFManager.Services
@@ -46,13 +47,42 @@ namespace PDFManager.Services
             try
             {
                 if (File.Exists(FilePath))
-                    return Repaired(JsonSerializer.Deserialize<SettingsData>(File.ReadAllText(FilePath)) ?? new SettingsData());
+                {
+                    // Shared for writing and deleting too, so a read while Save moves the new file
+                    // into place does not fail. A failed read means the defaults, and a caller that
+                    // changes one setting would then save those over everything else. The text is
+                    // read in one go and the file closed before parsing, because Save cannot
+                    // replace the file while it is open
+                    string json;
+                    using (var stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                    using (var reader = new StreamReader(stream))
+                        json = reader.ReadToEnd();
+                    return Repaired(JsonSerializer.Deserialize<SettingsData>(json) ?? new SettingsData());
+                }
             }
             catch
             {
                 // A damaged file falls back to the defaults and is replaced on the next save
             }
             return new SettingsData();
+        }
+
+        // Windows refuses to replace a file while it is open, even for a moment's read by another
+        // window (or a test running in parallel), so retry briefly rather than lose the save
+        private static void MoveIntoPlace(string tempPath)
+        {
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    File.Move(tempPath, FilePath, overwrite: true);
+                    return;
+                }
+                catch (Exception ex) when ((ex is IOException || ex is UnauthorizedAccessException) && attempt < 10)
+                {
+                    Thread.Sleep(10);
+                }
+            }
         }
 
         // A hand-edited file can hold null where the types promise a value. Put the defaults back
@@ -74,7 +104,7 @@ namespace PDFManager.Services
                 // Write a temporary file and move it into place, so a crash cannot leave half a file
                 string tempPath = FilePath + ".tmp";
                 File.WriteAllText(tempPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
-                File.Move(tempPath, FilePath, overwrite: true);
+                MoveIntoPlace(tempPath);
             }
             catch
             {
