@@ -9,7 +9,7 @@ using PDFManager.ViewModels;
 namespace PDFManager.Tests
 {
     // Covers the view-model paths that never show a MessageBox: the page-count hints,
-    // default output paths, metadata loading and merge-list de-duplication
+    // default output paths, metadata loading, protection checks and merge-list de-duplication
     public class ViewModelTests
     {
         private const string Folder = @"C:\Docs";
@@ -238,6 +238,79 @@ namespace PDFManager.Tests
             Assert.False(vm.RunSaveCommand.CanExecute(null));
         }
 
+        [Theory]
+        [InlineData(PdfProtection.None, "The password cannot be recovered if it is forgotten, so keep it somewhere safe.")]
+        [InlineData(PdfProtection.PasswordToOpen, "This PDF is already protected. Remove its password with Unlock PDF first.")]
+        [InlineData(PdfProtection.PermissionsOnly, "This PDF is already protected. Remove its password with Unlock PDF first.")]
+        public async Task Protect_hint_depends_on_whether_the_file_is_protected(PdfProtection protection, string hint)
+        {
+            var vm = new ProtectViewModel(new FakePdfService { Protection = _ => protection });
+
+            await vm.UpdateFileAsync(Path.Combine(Folder, "Contract.pdf"));
+
+            Assert.Equal(hint, vm.StatusInfo);
+            Assert.Equal(Path.Combine(Folder, "Contract_protected.pdf"), vm.OutputPath);
+        }
+
+        [Fact]
+        public async Task Protect_hint_reports_an_unreadable_file()
+        {
+            var vm = new ProtectViewModel(new FakePdfService { Protection = _ => throw new IOException("gone") });
+
+            await vm.UpdateFileAsync(Path.Combine(Folder, "Broken.pdf"));
+
+            Assert.Equal("Unable to read this file.", vm.StatusInfo);
+        }
+
+        [Theory]
+        [InlineData(PdfProtection.PasswordToOpen, "Enter the password that opens this PDF.")]
+        [InlineData(PdfProtection.PermissionsOnly, "This PDF opens without a password but restricts printing, copying or editing. Enter its owner password to remove the restrictions.")]
+        [InlineData(PdfProtection.None, "This PDF is not password-protected.")]
+        public async Task Unlock_hint_says_which_password_is_needed(PdfProtection protection, string hint)
+        {
+            var vm = new UnlockViewModel(new FakePdfService { Protection = _ => protection });
+
+            await vm.UpdateFileAsync(Path.Combine(Folder, "Contract.pdf"));
+
+            Assert.Equal(hint, vm.StatusInfo);
+            Assert.Equal(Path.Combine(Folder, "Contract_unlocked.pdf"), vm.OutputPath);
+        }
+
+        [Fact]
+        public async Task Unlock_clears_the_password_when_another_file_is_picked()
+        {
+            var vm = new UnlockViewModel(new FakePdfService { Protection = _ => PdfProtection.PasswordToOpen });
+            await vm.UpdateFileAsync(Path.Combine(Folder, "First.pdf"));
+            vm.Password = "for the first file";
+
+            await vm.UpdateFileAsync(Path.Combine(Folder, "Second.pdf"));
+
+            Assert.Equal("", vm.Password);
+        }
+
+        [Fact]
+        public async Task Unlock_hint_ignores_a_slow_result_for_a_file_that_was_replaced()
+        {
+            using var firstMayFinish = new ManualResetEventSlim();
+            string first = Path.Combine(Folder, "Slow.pdf"), second = Path.Combine(Folder, "Fast.pdf");
+            var vm = new UnlockViewModel(new FakePdfService
+            {
+                Protection = path =>
+                {
+                    if (path == first)
+                        firstMayFinish.Wait();
+                    return path == first ? PdfProtection.None : PdfProtection.PasswordToOpen;
+                }
+            });
+
+            Task slow = vm.UpdateFileAsync(first);
+            await vm.UpdateFileAsync(second);
+            firstMayFinish.Set();
+            await slow;
+
+            Assert.Equal("Enter the password that opens this PDF.", vm.StatusInfo);
+        }
+
         [Fact]
         public async Task Merge_adds_files_in_order_and_skips_ones_already_listed_ignoring_case()
         {
@@ -255,6 +328,7 @@ namespace PDFManager.Tests
         {
             public Func<string, int> PageCount { get; init; } = _ => 1;
             public Func<string, PdfMetadata> Metadata { get; init; } = _ => new PdfMetadata("", "", "", "");
+            public Func<string, PdfProtection> Protection { get; init; } = _ => PdfProtection.None;
 
             public int GetPageCount(string path) => PageCount(path);
             public string GetSplitDestPattern(string sourcePath) => throw new NotSupportedException();
@@ -264,6 +338,9 @@ namespace PDFManager.Tests
             public void ExtractPages(string sourcePath, string outputPath, string pageSpec) => throw new NotSupportedException();
             public PdfMetadata ReadMetadata(string path) => Metadata(path);
             public void WriteMetadata(string sourcePath, string outputPath, PdfMetadata metadata) => throw new NotSupportedException();
+            public PdfProtection GetProtection(string path) => Protection(path);
+            public void ProtectPdf(string sourcePath, string outputPath, string password) => throw new NotSupportedException();
+            public void UnlockPdf(string sourcePath, string outputPath, string password) => throw new NotSupportedException();
             public ISet<int> ParsePageRanges(string spec, int totalPages) => throw new NotSupportedException();
         }
     }

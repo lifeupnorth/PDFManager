@@ -14,6 +14,9 @@ namespace PDFManager.Services
         void ExtractPages(string sourcePath, string outputPath, string pageSpec);
         PdfMetadata ReadMetadata(string path);
         void WriteMetadata(string sourcePath, string outputPath, PdfMetadata metadata);
+        PdfProtection GetProtection(string path);
+        void ProtectPdf(string sourcePath, string outputPath, string password);
+        void UnlockPdf(string sourcePath, string outputPath, string password);
         ISet<int> ParsePageRanges(string spec, int totalPages);
     }
 }

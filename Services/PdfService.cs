@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using iText.Forms;
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Navigation;
@@ -203,6 +204,86 @@ namespace PDFManager.Services
                         xmp.DeleteProperty(XMPConst.NS_PDF, PdfConst.Keywords);
                         doc.SetXmpMetadata(xmp);
                     }
+                }
+
+                File.Move(tempPath, outputPath, overwrite: true);
+            }
+            finally
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            }
+        }
+
+        public PdfProtection GetProtection(string path)
+        {
+            try
+            {
+                using (var reader = new PdfReader(path))
+                using (var doc = new PdfDocument(reader))
+                    return reader.IsEncrypted() ? PdfProtection.PermissionsOnly : PdfProtection.None;
+            }
+            catch (iText.Kernel.Exceptions.BadPasswordException)
+            {
+                return PdfProtection.PasswordToOpen;
+            }
+        }
+
+        public void ProtectPdf(string sourcePath, string outputPath, string password)
+        {
+            if (GetProtection(sourcePath) != PdfProtection.None)
+                throw new InvalidOperationException("This PDF is already protected. Remove its password with Unlock PDF first.");
+
+            // Whoever has the password gets full access, so it serves as both the open and the
+            // owner password. AES-256 takes UTF-8 passwords, so any characters work
+            byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
+            var properties = new WriterProperties().SetStandardEncryption(passwordBytes, passwordBytes, AllPermissions, EncryptionConstants.ENCRYPTION_AES_256);
+            WriteThroughTempFile(sourcePath, outputPath, properties, new ReaderProperties());
+        }
+
+        public void UnlockPdf(string sourcePath, string outputPath, string password)
+        {
+            PdfProtection protection = GetProtection(sourcePath);
+            if (protection == PdfProtection.None)
+                throw new InvalidOperationException("This PDF is not password-protected.");
+
+            // Check the password before creating any output. Removing the protection needs the
+            // owner password; the open password alone is not enough when the two differ
+            var readerProperties = new ReaderProperties().SetPassword(Encoding.UTF8.GetBytes(password));
+            try
+            {
+                using (var reader = new PdfReader(sourcePath, readerProperties))
+                using (var doc = new PdfDocument(reader))
+                {
+                    if (!reader.IsOpenedWithFullPermission())
+                        throw new InvalidOperationException(protection == PdfProtection.PasswordToOpen
+                            ? "This password opens the PDF, but its owner has restricted changes. Enter the owner password to remove the protection."
+                            : "The password is incorrect.");
+                }
+            }
+            catch (iText.Kernel.Exceptions.BadPasswordException)
+            {
+                throw new InvalidOperationException("The password is incorrect.");
+            }
+
+            // Rewriting a document drops its encryption unless StampingProperties.PreserveEncryption is set
+            WriteThroughTempFile(sourcePath, outputPath, new WriterProperties(), readerProperties);
+        }
+
+        private const int AllPermissions = EncryptionConstants.ALLOW_PRINTING | EncryptionConstants.ALLOW_DEGRADED_PRINTING
+            | EncryptionConstants.ALLOW_MODIFY_CONTENTS | EncryptionConstants.ALLOW_ASSEMBLY | EncryptionConstants.ALLOW_COPY
+            | EncryptionConstants.ALLOW_SCREENREADERS | EncryptionConstants.ALLOW_MODIFY_ANNOTATIONS | EncryptionConstants.ALLOW_FILL_IN;
+
+        // Rewrites the source into a temporary file that replaces the output only on success,
+        // after the source is closed, so a failure never touches an existing output
+        private static void WriteThroughTempFile(string sourcePath, string outputPath, WriterProperties writerProperties, ReaderProperties readerProperties)
+        {
+            string tempPath = outputPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var reader = new PdfReader(sourcePath, readerProperties))
+                using (var writer = new PdfWriter(tempPath, writerProperties))
+                using (var doc = new PdfDocument(reader, writer))
+                {
                 }
 
                 File.Move(tempPath, outputPath, overwrite: true);

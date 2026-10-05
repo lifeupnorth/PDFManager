@@ -100,6 +100,26 @@
                             </StackPanel>
                         </Button>
                     </WrapPanel>
+
+                    <TextBlock Text="PDF security" Style="{StaticResource CategoryHeading}" Margin="0,34,0,12"/>
+                    <WrapPanel>
+                        <Button Style="{StaticResource ToolCard}" Tag="7" Click="OpenTool_Click" AutomationProperties.Name="Unlock PDF">
+                            <StackPanel>
+                                <Border Style="{StaticResource IconTile}" Background="{StaticResource SecurityTileBrush}">
+                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconUnlock}" Stroke="{StaticResource SecurityIconBrush}"/>
+                                </Border>
+                                <TextBlock Text="Unlock PDF" Style="{StaticResource CardLabel}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolCard}" Tag="6" Click="OpenTool_Click" AutomationProperties.Name="Protect PDF">
+                            <StackPanel>
+                                <Border Style="{StaticResource IconTile}" Background="{StaticResource SecurityTileBrush}">
+                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconLock}" Stroke="{StaticResource SecurityIconBrush}"/>
+                                </Border>
+                                <TextBlock Text="Protect PDF" Style="{StaticResource CardLabel}"/>
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
                 </StackPanel>
             </ScrollViewer>
         </DataTemplate>
@@ -472,6 +492,151 @@
                 </Border>
             </Grid>
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ProtectViewModel}">
+            <Grid Background="{StaticResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="protectTab_Drop">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="320"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Margin="28">
+                    <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
+                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{StaticResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="Protect PDF" Style="{StaticResource PageTitle}"/>
+                            <TextBlock Text="Save a copy of a PDF that needs a password to open. The original is not changed." Style="{StaticResource PageSubtitle}"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
+                        <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
+                        <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16,14">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource SecurityTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
+                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource SecurityIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
+                                </Border>
+                                <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
+                                    <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                        <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                            <Button Command="{Binding RunProtectCommand}">
+                                <Button.Style>
+                                    <!-- Content lives in the style so the busy trigger can replace it -->
+                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                        <Setter Property="Content" Value="Protect PDF"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                <Setter Property="Content" Value="Protecting..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="24,24,24,16">
+                                <TextBlock Text="Protect PDF" Style="{StaticResource SidebarTitle}"/>
+
+                                <TextBlock Text="PASSWORD" Style="{StaticResource SectionLabel}"/>
+                                <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password" Style="{StaticResource PasswordInput}"/>
+                                <TextBlock Text="CONFIRM PASSWORD" Style="{StaticResource SectionLabel}"/>
+                                <PasswordBox local:PasswordBinding.Password="{Binding ConfirmPassword}" AutomationProperties.Name="Confirm password" Style="{StaticResource PasswordInput}"/>
+                                <Label Content="{Binding StatusInfo}" Style="{StaticResource HintLabel}"/>
+
+                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Label Style="{StaticResource HintLabel}" Content="Anyone with the password can open, print and copy the protected file."/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:UnlockViewModel}">
+            <Grid Background="{StaticResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="unlockTab_Drop">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="320"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Margin="28">
+                    <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
+                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{StaticResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="Unlock PDF" Style="{StaticResource PageTitle}"/>
+                            <TextBlock Text="Save a copy of a password-protected PDF without its password. You need to know the password." Style="{StaticResource PageSubtitle}"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
+                        <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
+                        <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16,14">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource SecurityTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
+                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource SecurityIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
+                                </Border>
+                                <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
+                                    <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                        <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                            <Button Command="{Binding RunUnlockCommand}">
+                                <Button.Style>
+                                    <!-- Content lives in the style so the busy trigger can replace it -->
+                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                        <Setter Property="Content" Value="Unlock PDF"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                <Setter Property="Content" Value="Unlocking..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="24,24,24,16">
+                                <TextBlock Text="Unlock PDF" Style="{StaticResource SidebarTitle}"/>
+
+                                <TextBlock Text="PASSWORD" Style="{StaticResource SectionLabel}"/>
+                                <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password" AutomationProperties.HelpText="{Binding StatusInfo}" Style="{StaticResource PasswordInput}"/>
+                                <Label Content="{Binding StatusInfo}" Style="{StaticResource HintLabel}"/>
+
+                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Label Style="{StaticResource HintLabel}" Content="The unlocked copy opens without a password and has no restrictions."/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -530,6 +695,20 @@
                         <StackPanel Orientation="Horizontal">
                             <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconTag}"/>
                             <TextBlock Text="Edit metadata" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <TextBlock Text="SECURITY" Style="{StaticResource SectionLabel}" Margin="22,18,0,6"/>
+                    <RadioButton x:Name="navUnlock" AutomationProperties.Name="Unlock PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="7" Checked="Nav_Checked">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconUnlock}"/>
+                            <TextBlock Text="Unlock PDF" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="navProtect" AutomationProperties.Name="Protect PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="6" Checked="Nav_Checked">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconLock}"/>
+                            <TextBlock Text="Protect PDF" VerticalAlignment="Center"/>
                         </StackPanel>
                     </RadioButton>
                 </StackPanel>

@@ -56,11 +56,13 @@ namespace PDFManager.Tests
             }
         }
 
-        public string CreateEncrypted(string fileName, int pageCount = 2)
+        // Opens with "user"; "owner" is needed to change it. An empty userPassword makes a file
+        // that opens without a password but restricts what can be done with it
+        public string CreateEncrypted(string fileName, int pageCount = 2, string userPassword = "user", string ownerPassword = "owner")
         {
             string path = PathFor(fileName);
             var properties = new WriterProperties().SetStandardEncryption(
-                System.Text.Encoding.ASCII.GetBytes("user"), System.Text.Encoding.ASCII.GetBytes("owner"),
+                System.Text.Encoding.UTF8.GetBytes(userPassword), System.Text.Encoding.UTF8.GetBytes(ownerPassword),
                 EncryptionConstants.ALLOW_PRINTING, EncryptionConstants.ENCRYPTION_AES_128);
             using (var writer = new PdfWriter(path, properties))
             using (var doc = new PdfDocument(writer))

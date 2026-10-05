@@ -10,6 +10,8 @@ namespace PDFManager.ViewModels
         public RotateViewModel Rotate { get; }
         public ExtractViewModel Extract { get; }
         public MetadataViewModel Metadata { get; }
+        public ProtectViewModel Protect { get; }
+        public UnlockViewModel Unlock { get; }
         public HomeViewModel HomeView { get; }
 
         // The view model shown in the main area; its DataTemplate supplies the view
@@ -27,6 +29,8 @@ namespace PDFManager.ViewModels
             Rotate = new RotateViewModel(pdfService);
             Extract = new ExtractViewModel(pdfService);
             Metadata = new MetadataViewModel(pdfService);
+            Protect = new ProtectViewModel(pdfService);
+            Unlock = new UnlockViewModel(pdfService);
             HomeView = new HomeViewModel();
             _currentView = HomeView;
         }
