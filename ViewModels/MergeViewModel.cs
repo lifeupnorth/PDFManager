@@ -235,6 +235,9 @@ namespace PDFManager.ViewModels
             catch (Exception ex)
             {
                 try { if (File.Exists(outputPath)) File.Delete(outputPath); } catch { }
+                // InvalidOperationException carries the service's own validation messages
+                if (ex is not InvalidOperationException)
+                    ErrorLog.Write(ex, "Merge");
                 MessageBox.Show($"Error merging PDFs: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -248,4 +251,4 @@ namespace PDFManager.ViewModels
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
         }
     }
-}
+}

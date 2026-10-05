@@ -13,6 +13,13 @@
     <Resource Include="app.ico"/>
   </ItemGroup>
 
+  <!-- The test project lives below this folder; keep its sources out of the app -->
+  <ItemGroup>
+    <Compile Remove="PDFManager.Tests\**" />
+    <None Remove="PDFManager.Tests\**" />
+    <Page Remove="PDFManager.Tests\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="itext" Version="9.7.0" />
     <PackageReference Include="itext.bouncy-castle-adapter" Version="9.7.0" />

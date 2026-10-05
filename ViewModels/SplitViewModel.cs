@@ -119,6 +119,9 @@ namespace PDFManager.ViewModels
             }
             catch (Exception ex)
             {
+                // InvalidOperationException carries the service's own validation messages
+                if (ex is not InvalidOperationException)
+                    ErrorLog.Write(ex, "Split");
                 MessageBox.Show($"Error splitting PDF: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -164,4 +167,4 @@ namespace PDFManager.ViewModels
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
         }
     }
-}
+}
