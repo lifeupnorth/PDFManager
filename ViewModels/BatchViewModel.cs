@@ -354,6 +354,14 @@ namespace PDFManager.ViewModels
                 _dialogs.Show("That folder has no PDF files.", "No Files Added", DialogIcon.Information);
         }
 
+        // Files and folders dropped on the page: added like AddPaths, saying so when nothing new
+        // was found. Ignored while a run is in progress
+        public void AddDropped(IReadOnlyList<string> paths)
+        {
+            if (paths.Count > 0 && !IsBusy && AddPaths(paths) == 0)
+                _dialogs.Show("No new PDF files were found in what you dropped.", "No Files Added", DialogIcon.Information);
+        }
+
         // Adds PDF files, and the PDFs directly inside any folders. Files already listed are
         // skipped. Returns how many were added
         public int AddPaths(IEnumerable<string> paths)

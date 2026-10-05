@@ -109,6 +109,14 @@ namespace PDFManager.ViewModels
             AddPaths(_dialogs.PickFiles(ImageFiles.DialogFilter));
         }
 
+        // Files and folders dropped on the page: added like AddPaths, saying so when no new image
+        // was found. Ignored while a PDF is being created
+        public void AddDropped(IReadOnlyList<string> paths)
+        {
+            if (paths.Count > 0 && !IsBusy && AddPaths(paths) == 0)
+                _dialogs.Show("No new images were found in what you dropped. Supported formats are JPEG, PNG, BMP, GIF and TIFF.", "No Images Added", DialogIcon.Information);
+        }
+
         // Adds image files, and the images directly inside any folders, in name order. Images
         // already listed are skipped. The first images added also choose the output name.
         // Returns how many were added

@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Windows;
 using PDFManager.ViewModels;
 using PDFManager.Services;
@@ -8,10 +7,13 @@ namespace PDFManager
 {
     public partial class MainWindow : Window
     {
+        // Shared with the view models; the drop handlers use it too
+        private readonly IDialogService _dialogs = new WindowsDialogService();
+
         public MainWindow()
         {
             InitializeComponent();
-            this.DataContext = new MainViewModel(new PdfService(), new WindowsPageRenderer(), new WindowsDialogService(), ThemeManager.Apply);
+            this.DataContext = new MainViewModel(new PdfService(), new WindowsPageRenderer(), _dialogs, ThemeManager.Apply);
         }
 
         private MainViewModel ViewModel => (MainViewModel)DataContext;
@@ -67,96 +69,70 @@ namespace PDFManager
             e.Handled = true;
         }
 
+        // The dropped files and folders, or none when the drop is not files. The handlers below
+        // only pass them on; what a drop may contain is checked in the view models
+        private static string[] DroppedPaths(DragEventArgs e) =>
+            e.Data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
+
         private async void splitTab_Drop(object sender, DragEventArgs e)
         {
-            if (TryGetSingleDroppedPdf(e, "split", out string file))
+            if (DroppedFiles.SinglePdf(DroppedPaths(e), "split", _dialogs) is string file)
                 await ViewModel.Split.UpdateFileAsync(file);
         }
 
         private async void mergeTab_Drop(object sender, DragEventArgs e)
         {
-            if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+            string[] files = DroppedPaths(e);
+            if (files.Length > 0)
                 await ViewModel.Merge.AddFilesAsync(files);
         }
 
         private async void rotateTab_Drop(object sender, DragEventArgs e)
         {
-            if (TryGetSingleDroppedPdf(e, "rotate", out string file))
+            if (DroppedFiles.SinglePdf(DroppedPaths(e), "rotate", _dialogs) is string file)
                 await ViewModel.Rotate.UpdateFileAsync(file);
         }
 
         private async void extractTab_Drop(object sender, DragEventArgs e)
         {
-            if (TryGetSingleDroppedPdf(e, "extract pages from", out string file))
+            if (DroppedFiles.SinglePdf(DroppedPaths(e), "extract pages from", _dialogs) is string file)
                 await ViewModel.Extract.UpdateFileAsync(file);
         }
 
         private async void metadataTab_Drop(object sender, DragEventArgs e)
         {
-            if (TryGetSingleDroppedPdf(e, "edit", out string file))
+            if (DroppedFiles.SinglePdf(DroppedPaths(e), "edit", _dialogs) is string file)
                 await ViewModel.Metadata.UpdateFileAsync(file);
         }
 
         private async void protectTab_Drop(object sender, DragEventArgs e)
         {
-            if (TryGetSingleDroppedPdf(e, "protect", out string file))
+            if (DroppedFiles.SinglePdf(DroppedPaths(e), "protect", _dialogs) is string file)
                 await ViewModel.Protect.UpdateFileAsync(file);
         }
 
         private async void unlockTab_Drop(object sender, DragEventArgs e)
         {
-            if (TryGetSingleDroppedPdf(e, "unlock", out string file))
+            if (DroppedFiles.SinglePdf(DroppedPaths(e), "unlock", _dialogs) is string file)
                 await ViewModel.Unlock.UpdateFileAsync(file);
         }
 
         private async void watermarkTab_Drop(object sender, DragEventArgs e)
         {
-            if (TryGetSingleDroppedPdf(e, "watermark", out string file))
+            if (DroppedFiles.SinglePdf(DroppedPaths(e), "watermark", _dialogs) is string file)
                 await ViewModel.Watermark.UpdateFileAsync(file);
         }
 
         private async void pdfToImageTab_Drop(object sender, DragEventArgs e)
         {
-            if (!ViewModel.PdfToImage.IsBusy && TryGetSingleDroppedPdf(e, "convert", out string file))
+            if (!ViewModel.PdfToImage.IsBusy && DroppedFiles.SinglePdf(DroppedPaths(e), "convert", _dialogs) is string file)
                 await ViewModel.PdfToImage.UpdateFileAsync(file);
         }
 
         // Image to PDF takes images and folders of images
-        private void imagesToPdfTab_Drop(object sender, DragEventArgs e)
-        {
-            if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0 && !ViewModel.ImagesToPdf.IsBusy
-                && ViewModel.ImagesToPdf.AddPaths(paths) == 0)
-                MessageBox.Show("No new images were found in what you dropped. Supported formats are JPEG, PNG, BMP, GIF and TIFF.", "No Images Added", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
+        private void imagesToPdfTab_Drop(object sender, DragEventArgs e) => ViewModel.ImagesToPdf.AddDropped(DroppedPaths(e));
 
         // Batch takes any mix of PDFs and folders
-        private void batchTab_Drop(object sender, DragEventArgs e)
-        {
-            if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0 && !ViewModel.Batch.IsBusy
-                && ViewModel.Batch.AddPaths(paths) == 0)
-                MessageBox.Show("No new PDF files were found in what you dropped.", "No Files Added", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        private static bool TryGetSingleDroppedPdf(DragEventArgs e, string action, out string file)
-        {
-            file = null;
-            if (e.Data.GetData(DataFormats.FileDrop) is not string[] files || files.Length == 0)
-                return false;
-
-            if (files.Length > 1)
-            {
-                MessageBox.Show($"Please drop a single PDF file to {action}.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return false;
-            }
-
-            if (!string.Equals(Path.GetExtension(files[0]), ".pdf", StringComparison.OrdinalIgnoreCase))
-            {
-                MessageBox.Show("Only PDF files are supported.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return false;
-            }
-
-            file = files[0];
-            return true;
-        }
+        private void batchTab_Drop(object sender, DragEventArgs e) => ViewModel.Batch.AddDropped(DroppedPaths(e));
     }
 }

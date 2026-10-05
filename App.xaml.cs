@@ -17,35 +17,19 @@ namespace PDFManager
             // Before StartupUri creates the window, so it never shows in the wrong colours
             ThemeManager.Apply(AppSettings.Load().ThemeChoice);
 
-            // UI-thread exceptions, including ones rethrown from async void commands:
-            // log them and keep the app running
+            // Unhandled exceptions are logged and reported; see CrashReporter
+            var crashes = new CrashReporter(new WindowsDialogService());
             DispatcherUnhandledException += (sender, args) =>
             {
-                string? logPath = ErrorLog.Write(args.Exception, "Unhandled UI exception");
-                MessageBox.Show($"An unexpected error occurred: {args.Exception.Message}{DescribeLog(logPath)}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                args.Handled = true;
+                crashes.ReportUiException(args.Exception);
+                args.Handled = true; // keep running
             };
-
-            // Exceptions on other threads end the process; record them before it goes
-            AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
-            {
-                if (args.ExceptionObject is not Exception ex)
-                    return;
-                string? logPath = ErrorLog.Write(ex, "Unhandled background exception");
-                MessageBox.Show($"PDFManager has to close because of an unexpected error: {ex.Message}{DescribeLog(logPath)}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            };
-
-            // Faulted tasks nobody awaited would otherwise vanish silently
+            AppDomain.CurrentDomain.UnhandledException += (sender, args) => crashes.ReportFatalException(args.ExceptionObject);
             TaskScheduler.UnobservedTaskException += (sender, args) =>
             {
-                ErrorLog.Write(args.Exception, "Unobserved task exception");
+                crashes.ReportUnobservedTask(args.Exception);
                 args.SetObserved();
             };
         }
-
-        private static string DescribeLog(string? logPath) =>
-            logPath == null ? string.Empty : $"\n\nDetails were saved to:\n{logPath}";
     }
 }
