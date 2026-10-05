@@ -391,5 +391,46 @@ namespace PDFManager.Tests
             Assert.Equal(new[] { b, a, c }, vm.MergeFiles);
             Assert.False(vm.IsAddingFiles);
         }
+
+        private static MergeViewModel MergeOf(params string[] files)
+        {
+            var vm = new MergeViewModel(new FakePdfService(), new FakeDialogService());
+            foreach (string file in files)
+                vm.MergeFiles.Add(file);
+            return vm;
+        }
+
+        [Fact]
+        public void Merge_moves_the_one_selected_file_up_or_down()
+        {
+            string a = Path.Combine(Folder, "a.pdf"), b = Path.Combine(Folder, "b.pdf"), c = Path.Combine(Folder, "c.pdf");
+            var vm = MergeOf(a, b, c);
+
+            vm.MoveUpCommand.Execute(new List<string> { b });
+            Assert.Equal(new[] { b, a, c }, vm.MergeFiles);
+            vm.MoveDownCommand.Execute(new List<string> { a });
+            Assert.Equal(new[] { b, c, a }, vm.MergeFiles);
+
+            Assert.False(vm.MoveUpCommand.CanExecute(new List<string> { b }));   // already first
+            Assert.False(vm.MoveDownCommand.CanExecute(new List<string> { a })); // already last
+        }
+
+        // The buttons are disabled then, but Execute must not rely on that
+        [Fact]
+        public void Merge_move_with_no_file_or_several_selected_does_nothing()
+        {
+            string a = Path.Combine(Folder, "a.pdf"), b = Path.Combine(Folder, "b.pdf");
+            var vm = MergeOf(a, b);
+
+            foreach (object? selection in new object?[] { null, new List<string>(), new List<string> { a, b } })
+            {
+                Assert.False(vm.MoveUpCommand.CanExecute(selection));
+                Assert.False(vm.MoveDownCommand.CanExecute(selection));
+                vm.MoveUpCommand.Execute(selection);
+                vm.MoveDownCommand.Execute(selection);
+            }
+
+            Assert.Equal(new[] { a, b }, vm.MergeFiles);
+        }
     }
 }

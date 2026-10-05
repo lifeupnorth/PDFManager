@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -124,7 +125,7 @@ namespace PDFManager.ViewModels
                 return;
             }
 
-            string pageSpec = RotateAllPages ? null : RotatePageSpec;
+            string? pageSpec = RotateAllPages ? null : RotatePageSpec; // null rotates every page
             if (pageSpec != null && string.IsNullOrWhiteSpace(pageSpec))
             {
                 _dialogs.Show("Please enter the pages to rotate (for example: 1, 3, 5-7), or choose \"All pages\".", "Validation Error", DialogIcon.Warning);

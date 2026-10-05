@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using PDFManager.Base;
 using PDFManager.Services;

@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -192,9 +193,9 @@ namespace PDFManager.ViewModels
 
         private void Move(object? parameter, int step)
         {
-            if (CanMove(parameter, step))
+            if (CanMove(parameter, step) && SingleSelected(parameter) is ImageItem item)
             {
-                int index = Images.IndexOf(SingleSelected(parameter)!);
+                int index = Images.IndexOf(item);
                 Images.Move(index, index + step);
             }
         }

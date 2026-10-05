@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -141,7 +142,9 @@ namespace PDFManager.ViewModels
 
         private void ExecuteMoveUp(object? parameter)
         {
-            int index = MergeFiles.IndexOf(SingleSelected(parameter)!);
+            if (SingleSelected(parameter) is not string file)
+                return;
+            int index = MergeFiles.IndexOf(file);
             if (index > 0)
                 MergeFiles.Move(index, index - 1);
         }
@@ -155,7 +158,9 @@ namespace PDFManager.ViewModels
 
         private void ExecuteMoveDown(object? parameter)
         {
-            int index = MergeFiles.IndexOf(SingleSelected(parameter)!);
+            if (SingleSelected(parameter) is not string file)
+                return;
+            int index = MergeFiles.IndexOf(file);
             if (index >= 0 && index < MergeFiles.Count - 1)
                 MergeFiles.Move(index, index + 1);
         }
