@@ -29,7 +29,7 @@ namespace PDFManager.Tests
             Path.Combine(Path.GetDirectoryName(sourcePath)!, Path.GetFileNameWithoutExtension(sourcePath) + "_part{0}.pdf");
         public void SplitPdf(string sourcePath, int splitPage, string folderPath) => (Split ?? throw new NotSupportedException())(sourcePath, splitPage, folderPath);
         public void MergePdfs(string outputPath, List<string> sourceFiles) => (Merge ?? throw new NotSupportedException())(outputPath, sourceFiles);
-        public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees) => (Rotate ?? throw new NotSupportedException())(sourcePath, outputPath);
+        public void RotatePdf(string sourcePath, string outputPath, string? pageSpec, int degrees) => (Rotate ?? throw new NotSupportedException())(sourcePath, outputPath);
         public void ExtractPages(string sourcePath, string outputPath, string pageSpec) => (Extract ?? throw new NotSupportedException())(sourcePath, outputPath);
         public PdfMetadata ReadMetadata(string path) => Metadata(path);
         public void WriteMetadata(string sourcePath, string outputPath, PdfMetadata metadata) => (SaveMetadata ?? throw new NotSupportedException())(sourcePath, outputPath);

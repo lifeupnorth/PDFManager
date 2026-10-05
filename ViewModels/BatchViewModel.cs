@@ -502,7 +502,7 @@ namespace PDFManager.ViewModels
             // Read the settings here: the work runs on a background thread
             BatchAction action = Action;
             int angle = RotationAngle;
-            var watermark = new WatermarkOptions(WatermarkText.Trim(), WatermarkDiagonal, WatermarkOpacity, null!);
+            var watermark = new WatermarkOptions(WatermarkText.Trim(), WatermarkDiagonal, WatermarkOpacity, null);
             string pageSpec = PageSpec, password = Password;
 
             foreach (var file in files)
@@ -537,7 +537,7 @@ namespace PDFManager.ViewModels
                         {
                             switch (action)
                             {
-                                case BatchAction.Rotate: _pdfService.RotatePdf(source, output, null!, angle); break;
+                                case BatchAction.Rotate: _pdfService.RotatePdf(source, output, null, angle); break;
                                 case BatchAction.Watermark: _pdfService.AddWatermark(source, output, watermark); break;
                                 case BatchAction.Extract: _pdfService.ExtractPages(source, output, pageSpec); break;
                                 case BatchAction.Protect: _pdfService.ProtectPdf(source, output, password); break;

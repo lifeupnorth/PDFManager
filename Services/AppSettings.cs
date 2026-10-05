@@ -1,6 +1,8 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -44,13 +46,24 @@ namespace PDFManager.Services
             try
             {
                 if (File.Exists(FilePath))
-                    return JsonSerializer.Deserialize<SettingsData>(File.ReadAllText(FilePath)) ?? new SettingsData();
+                    return Repaired(JsonSerializer.Deserialize<SettingsData>(File.ReadAllText(FilePath)) ?? new SettingsData());
             }
             catch
             {
                 // A damaged file falls back to the defaults and is replaced on the next save
             }
             return new SettingsData();
+        }
+
+        // A hand-edited file can hold null where the types promise a value. Put the defaults back
+        // here, so the code that reads the settings can trust them; the presets' own values are
+        // put back in range by BatchPreset.Normalized
+        private static SettingsData Repaired(SettingsData settings)
+        {
+            settings.CollapsedSections = settings.CollapsedSections?.Where(name => name != null).ToList() ?? new List<string>();
+            settings.BatchPresets = settings.BatchPresets?.Where(preset => preset != null).ToList() ?? new List<BatchPreset>();
+            settings.Theme ??= nameof(AppTheme.Dark);
+            return settings;
         }
 
         public static void Save(SettingsData settings)

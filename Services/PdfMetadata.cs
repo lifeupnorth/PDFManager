@@ -1,3 +1,4 @@
+#nullable enable
 namespace PDFManager.Services
 {
     // The document properties the metadata tool edits. Empty strings mean "not set".

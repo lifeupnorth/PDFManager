@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -39,7 +40,7 @@ namespace PDFManager.Services
 
         public string GetSplitDestPattern(string sourcePath)
         {
-            string folderPath = Path.GetDirectoryName(sourcePath);
+            string folderPath = Path.GetDirectoryName(sourcePath) ?? throw new ArgumentException("The path has no folder.", nameof(sourcePath));
             string baseName = Path.GetFileNameWithoutExtension(sourcePath);
             return Path.Combine(folderPath, baseName + "_part{0}.pdf");
         }
@@ -75,7 +76,7 @@ namespace PDFManager.Services
             using (var resultDoc = new PdfDocument(new PdfWriter(outputPath, new WriterProperties().UseSmartMode())))
             {
                 var formCopier = new PdfPageFormCopier();
-                PdfOutline rootOutline = null;
+                PdfOutline? rootOutline = null;
                 int pageIndex = 1;
 
                 foreach (var filePath in sourceFiles)
@@ -106,7 +107,7 @@ namespace PDFManager.Services
             }
         }
 
-        public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees)
+        public void RotatePdf(string sourcePath, string outputPath, string? pageSpec, int degrees)
         {
             // Rotating writes to a temporary file that replaces the output only on success,
             // so the source is read once and a failed run leaves the output untouched
@@ -122,7 +123,7 @@ namespace PDFManager.Services
                     int totalPages = pdfDoc.GetNumberOfPages();
 
                     // A null spec means "All pages"
-                    ISet<int> pagesToRotate = pageSpec == null
+                    ISet<int>? pagesToRotate = pageSpec == null
                         ? null
                         : ParsePageRanges(pageSpec, totalPages);
 
@@ -287,7 +288,7 @@ namespace PDFManager.Services
                 using (var doc = new PdfDocument(reader, writer))
                 {
                     int totalPages = doc.GetNumberOfPages();
-                    ISet<int> pages = options.PageSpec == null ? null : ParsePageRanges(options.PageSpec, totalPages);
+                    ISet<int>? pages = options.PageSpec == null ? null : ParsePageRanges(options.PageSpec, totalPages);
                     PdfFont font = CreateWatermarkFont(options.Text);
                     var transparency = new PdfExtGState().SetFillOpacity(options.OpacityPercent / 100f);
 
@@ -492,7 +493,7 @@ namespace PDFManager.Services
             }
         }
 
-        private static string ValueOrNull(string value) =>
+        private static string? ValueOrNull(string value) =>
             string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         public ISet<int> ParsePageRanges(string spec, int totalPages) => PageRanges.Parse(spec, totalPages);

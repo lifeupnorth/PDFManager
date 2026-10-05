@@ -185,7 +185,7 @@ namespace PDFManager.ViewModels
 
             // Read the inputs here: the work runs on a background thread
             string sourcePath = SourcePath, outputPath = OutputPath;
-            var options = new WatermarkOptions(WatermarkText.Trim(), IsDiagonal, OpacityPercent, pageSpec!);
+            var options = new WatermarkOptions(WatermarkText.Trim(), IsDiagonal, OpacityPercent, pageSpec);
             try
             {
                 IsBusy = true;
