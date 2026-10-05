@@ -1,4 +1,3 @@
-#nullable enable
 namespace PDFManager.Services
 {
     // Text is drawn over each page, centred. Diagonal runs it corner to corner, otherwise it is

@@ -1,4 +1,3 @@
-#nullable enable
 namespace PDFManager.Services
 {
     public enum PdfProtection

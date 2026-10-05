@@ -1,4 +1,3 @@
-#nullable enable
 using System; // awaiting WinRT async operations
 using System.Collections.Generic;
 using System.IO;

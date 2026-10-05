@@ -18,8 +18,8 @@ namespace PDFManager
         private static readonly DependencyProperty IsUpdatingProperty = DependencyProperty.RegisterAttached(
             "IsUpdating", typeof(bool), typeof(PasswordBinding));
 
-        public static string GetPassword(DependencyObject d) => (string)d.GetValue(PasswordProperty);
-        public static void SetPassword(DependencyObject d, string value) => d.SetValue(PasswordProperty, value);
+        public static string? GetPassword(DependencyObject d) => (string?)d.GetValue(PasswordProperty);
+        public static void SetPassword(DependencyObject d, string? value) => d.SetValue(PasswordProperty, value);
 
         private static void OnPasswordChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -29,7 +29,7 @@ namespace PDFManager
             box.PasswordChanged -= Box_PasswordChanged;
             // Skip writing back the value the box itself just reported, which would move the caret
             if (!(bool)box.GetValue(IsUpdatingProperty))
-                box.Password = (string)e.NewValue ?? string.Empty;
+                box.Password = (string?)e.NewValue ?? string.Empty;
             box.PasswordChanged += Box_PasswordChanged;
         }
 

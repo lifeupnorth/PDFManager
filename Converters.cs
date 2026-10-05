@@ -8,10 +8,10 @@ namespace PDFManager
 {
     public class FileNameConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
             => value is string path ? Path.GetFileName(path) : value;
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
             => throw new NotSupportedException();
     }
 
@@ -23,13 +23,13 @@ namespace PDFManager
     {
         public bool VisibleWhenEmpty { get; set; }
 
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             bool isEmpty = string.IsNullOrWhiteSpace(value?.ToString());
             return isEmpty == VisibleWhenEmpty ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
             => throw new NotSupportedException();
     }
 
@@ -39,13 +39,15 @@ namespace PDFManager
     /// </summary>
     public class RadioValueConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
             => string.Equals(value?.ToString(), parameter?.ToString(), StringComparison.Ordinal);
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            if (value is not true)
-                return Binding.DoNothing; // an option being unchecked by its group says nothing about the value
+            // An option being unchecked by its group says nothing about the value, and an option
+            // with no ConverterParameter has no value to give
+            if (value is not true || parameter == null)
+                return Binding.DoNothing;
             // ChangeType cannot turn text into an enum value, such as the batch action
             return targetType.IsEnum
                 ? Enum.Parse(targetType, parameter.ToString()!)
@@ -59,19 +61,19 @@ namespace PDFManager
     /// </summary>
     public class EqualsToVisibilityConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
             => string.Equals(value?.ToString(), parameter?.ToString(), StringComparison.Ordinal) ? Visibility.Visible : Visibility.Collapsed;
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
             => throw new NotSupportedException();
     }
 
     public class InverseBoolToVisibilityConverter : IValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
             => value is true ? Visibility.Collapsed : Visibility.Visible;
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
             => throw new NotSupportedException();
     }
 }
