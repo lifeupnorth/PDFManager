@@ -52,6 +52,16 @@ namespace PDFManager.Tests
             Assert.NotNull(await doc.RenderPageAsync(2, 50));
         }
 
+        // The blank page that keeps the rendering engine alive until exit (see WindowsPageRenderer)
+        // must really render, or the crash on exit comes back without any visible failure
+        [Fact]
+        public async Task Keeps_a_rendered_blank_page_alive()
+        {
+            using var doc = await _renderer.OpenAsync(_pdfs.CreatePages("doc.pdf", 1));
+
+            Assert.True(await WindowsPageRenderer.IsEngineKeptAliveAsync());
+        }
+
         [Fact]
         public async Task Throws_for_a_password_protected_pdf()
         {

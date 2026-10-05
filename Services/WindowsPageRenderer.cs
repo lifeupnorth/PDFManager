@@ -1,6 +1,8 @@
 using System; // awaiting WinRT async operations
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using Windows.Data.Pdf;
@@ -13,8 +15,70 @@ namespace PDFManager.Services
     /// </summary>
     public class WindowsPageRenderer : IPageRenderer
     {
+        // Once pages have been rendered and every rendered document is released, the process can
+        // crash on exit inside the graphics driver (seen with Qualcomm Adreno on ARM64: an access
+        // violation in qcdx11arm64xum.dll, or exception 0x87a, after the window has closed).
+        // Keeping one rendered document alive until the process ends avoids it, so the first
+        // document opened also renders a blank page that is never released.
+        private static readonly Lazy<Task> KeepAlive = new Lazy<Task>(() => Task.Run(KeepEngineAliveAsync));
+        private static PdfDocument? _keptDocument;
+        private static InMemoryRandomAccessStream? _keptSource;
+
+        // True once the blank page has rendered; false if it could not be, which only loses the workaround
+        internal static async Task<bool> IsEngineKeptAliveAsync()
+        {
+            await KeepAlive.Value;
+            return _keptDocument != null && _keptSource != null;
+        }
+
+        private static async Task KeepEngineAliveAsync()
+        {
+            try
+            {
+                var source = new InMemoryRandomAccessStream();
+                await source.WriteAsync(BlankPagePdf().AsBuffer());
+                source.Seek(0);
+                PdfDocument document = await PdfDocument.LoadFromStreamAsync(source);
+                using (PdfPage page = document.GetPage(0))
+                using (var png = new InMemoryRandomAccessStream())
+                    await page.RenderToStreamAsync(png, new PdfPageRenderOptions { DestinationWidth = 1 });
+                _keptDocument = document;
+                _keptSource = source;
+            }
+            catch
+            {
+                // Rendering still works without it; only the crash on exit can come back
+            }
+        }
+
+        // A one-inch blank page, built here so the workaround does not depend on iText or a file
+        private static byte[] BlankPagePdf()
+        {
+            string[] objects =
+            {
+                "<< /Type /Catalog /Pages 2 0 R >>",
+                "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 72 72] >>"
+            };
+            var pdf = new StringBuilder("%PDF-1.4\n");
+            var offsets = new List<int>();
+            for (int i = 0; i < objects.Length; i++)
+            {
+                offsets.Add(pdf.Length);
+                pdf.Append($"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+            }
+            int xref = pdf.Length;
+            pdf.Append($"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
+            foreach (int offset in offsets)
+                pdf.Append($"{offset:D10} 00000 n \n");
+            pdf.Append($"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+            return Encoding.ASCII.GetBytes(pdf.ToString());
+        }
+
         public async Task<IRenderedDocument> OpenAsync(string path)
         {
+            await KeepAlive.Value;
+
             // Work from a copy in memory so the file is not held open while pages render;
             // the user may overwrite it with one of the tools in the meantime
             byte[] bytes = await File.ReadAllBytesAsync(path);
