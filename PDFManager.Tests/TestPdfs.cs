@@ -33,6 +33,29 @@ namespace PDFManager.Tests
         public string CreatePages(string fileName, int pageCount, float firstWidth = 100) =>
             Create(fileName, Enumerable.Range(0, pageCount).Select(i => firstWidth + i).ToArray());
 
+        // withXmp also writes an XMP metadata stream, which iText fills from the document info
+        public string CreateWithMetadata(string fileName, string title, string author, string subject, string keywords, bool withXmp = false)
+        {
+            string path = PathFor(fileName);
+            var properties = withXmp ? new WriterProperties().AddXmpMetadata() : new WriterProperties();
+            using (var writer = new PdfWriter(path, properties))
+            using (var doc = new PdfDocument(writer))
+            {
+                doc.GetDocumentInfo().SetTitle(title).SetAuthor(author).SetSubject(subject).SetKeywords(keywords);
+                AddPages(doc, new[] { 100f, 101f }, 0);
+            }
+            return path;
+        }
+
+        public static string XmpText(string path)
+        {
+            using (var doc = new PdfDocument(new PdfReader(path)))
+            {
+                byte[] xmp = doc.GetXmpMetadataBytes();
+                return xmp == null ? "" : System.Text.Encoding.UTF8.GetString(xmp);
+            }
+        }
+
         public string CreateEncrypted(string fileName, int pageCount = 2)
         {
             string path = PathFor(fileName);

@@ -307,6 +307,7 @@
         <Geometry x:Key="IconMerge">M3,12 H9 M6.5,9 L9,12 L6.5,15 M21,12 H15 M17.5,9 L15,12 L17.5,15 M12,4 V20</Geometry>
         <Geometry x:Key="IconRotate">M19,12 A7,7 0 1 1 15.5,5.94 M11,6.4 L15.5,5.94 L13.7,1.9</Geometry>
         <Geometry x:Key="IconExtract">M15,9 V6 L12,3 H3 V21 H15 V15 M8,12 H21 M17.5,8.5 L21,12 L17.5,15.5</Geometry>
+        <Geometry x:Key="IconTag">M3,3 H11 L21,13 L13,21 L3,11 Z M9,7.5 A1.5,1.5 0 1 1 6,7.5 A1.5,1.5 0 1 1 9,7.5 Z</Geometry>
         <Geometry x:Key="IconFile">M6,2 H14 L20,8 V22 H6 Z M14,2 V8 H20</Geometry>
 
         <Style x:Key="Icon" TargetType="Path">

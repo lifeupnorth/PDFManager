@@ -9,7 +9,7 @@ using PDFManager.ViewModels;
 namespace PDFManager.Tests
 {
     // Covers the view-model paths that never show a MessageBox: the page-count hints,
-    // default output paths and merge-list de-duplication
+    // default output paths, metadata loading and merge-list de-duplication
     public class ViewModelTests
     {
         private const string Folder = @"C:\Docs";
@@ -152,6 +152,93 @@ namespace PDFManager.Tests
         }
 
         [Fact]
+        public async Task Metadata_loads_the_properties_and_suggests_an_output_next_to_the_source()
+        {
+            var vm = new MetadataViewModel(new FakePdfService { Metadata = _ => new PdfMetadata("T", "A", "S", "K") });
+
+            await vm.UpdateFileAsync(Path.Combine(Folder, "Paper.pdf"));
+
+            Assert.Equal(("T", "A", "S", "K"), (vm.Title, vm.Author, vm.Subject, vm.Keywords));
+            Assert.True(vm.IsLoaded);
+            Assert.True(vm.RunSaveCommand.CanExecute(null));
+            Assert.Equal("Leave a field empty to remove that property.", vm.StatusInfo);
+            Assert.Equal(Path.Combine(Folder, "Paper_edited.pdf"), vm.OutputPath);
+        }
+
+        [Fact]
+        public async Task Metadata_cannot_be_saved_while_a_new_file_is_loading()
+        {
+            using var mayFinish = new ManualResetEventSlim();
+            string first = Path.Combine(Folder, "First.pdf"), second = Path.Combine(Folder, "Second.pdf");
+            var vm = new MetadataViewModel(new FakePdfService
+            {
+                Metadata = path =>
+                {
+                    if (path == second)
+                        mayFinish.Wait();
+                    return new PdfMetadata(Path.GetFileNameWithoutExtension(path), "", "", "");
+                }
+            });
+            await vm.UpdateFileAsync(first);
+
+            Task loading = vm.UpdateFileAsync(second);
+
+            // The first file's values are gone and saving is off until the second file is read
+            Assert.Equal("", vm.Title);
+            Assert.False(vm.IsLoaded);
+            Assert.False(vm.RunSaveCommand.CanExecute(null));
+            Assert.Equal("Reading document properties...", vm.StatusInfo);
+
+            mayFinish.Set();
+            await loading;
+            Assert.Equal("Second", vm.Title);
+            Assert.True(vm.RunSaveCommand.CanExecute(null));
+        }
+
+        [Fact]
+        public async Task Metadata_ignores_a_slow_result_for_a_file_that_was_replaced()
+        {
+            using var firstMayFinish = new ManualResetEventSlim();
+            string first = Path.Combine(Folder, "Slow.pdf"), second = Path.Combine(Folder, "Fast.pdf");
+            var vm = new MetadataViewModel(new FakePdfService
+            {
+                Metadata = path =>
+                {
+                    if (path == first)
+                        firstMayFinish.Wait();
+                    return new PdfMetadata(Path.GetFileNameWithoutExtension(path), "", "", "");
+                }
+            });
+
+            Task slow = vm.UpdateFileAsync(first);
+            await vm.UpdateFileAsync(second);
+            firstMayFinish.Set();
+            await slow;
+
+            Assert.Equal("Fast", vm.Title);
+            Assert.True(vm.IsLoaded);
+        }
+
+        [Theory]
+        [InlineData(true, "This PDF is password-protected and its properties cannot be changed.")]
+        [InlineData(false, "Unable to read this file's properties.")]
+        public async Task Metadata_that_cannot_be_read_leaves_saving_off_and_says_why(bool passwordProtected, string status)
+        {
+            var vm = new MetadataViewModel(new FakePdfService
+            {
+                Metadata = _ => passwordProtected
+                    ? throw new iText.Kernel.Exceptions.BadPasswordException("locked")
+                    : throw new IOException("unreadable")
+            });
+
+            await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
+
+            Assert.Equal(status, vm.StatusInfo);
+            Assert.False(vm.IsLoaded);
+            Assert.False(vm.RunSaveCommand.CanExecute(null));
+        }
+
+        [Fact]
         public async Task Merge_adds_files_in_order_and_skips_ones_already_listed_ignoring_case()
         {
             var vm = new MergeViewModel(new FakePdfService { PageCount = _ => 1 });
@@ -167,6 +254,7 @@ namespace PDFManager.Tests
         private sealed class FakePdfService : IPdfService
         {
             public Func<string, int> PageCount { get; init; } = _ => 1;
+            public Func<string, PdfMetadata> Metadata { get; init; } = _ => new PdfMetadata("", "", "", "");
 
             public int GetPageCount(string path) => PageCount(path);
             public string GetSplitDestPattern(string sourcePath) => throw new NotSupportedException();
@@ -174,6 +262,8 @@ namespace PDFManager.Tests
             public void MergePdfs(string outputPath, List<string> sourceFiles) => throw new NotSupportedException();
             public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees) => throw new NotSupportedException();
             public void ExtractPages(string sourcePath, string outputPath, string pageSpec) => throw new NotSupportedException();
+            public PdfMetadata ReadMetadata(string path) => Metadata(path);
+            public void WriteMetadata(string sourcePath, string outputPath, PdfMetadata metadata) => throw new NotSupportedException();
             public ISet<int> ParsePageRanges(string spec, int totalPages) => throw new NotSupportedException();
         }
     }

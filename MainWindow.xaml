@@ -91,6 +91,14 @@
                                 <TextBlock Text="Rotate PDF" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
+                        <Button Style="{StaticResource ToolCard}" Tag="5" Click="OpenTool_Click" AutomationProperties.Name="Edit metadata">
+                            <StackPanel>
+                                <Border Style="{StaticResource IconTile}" Background="{StaticResource EditTileBrush}">
+                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconTag}" Stroke="{StaticResource EditIconBrush}"/>
+                                </Border>
+                                <TextBlock Text="Edit metadata" Style="{StaticResource CardLabel}"/>
+                            </StackPanel>
+                        </Button>
                     </WrapPanel>
                 </StackPanel>
             </ScrollViewer>
@@ -385,6 +393,85 @@
                 </Border>
             </Grid>
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MetadataViewModel}">
+            <Grid Background="{StaticResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="metadataTab_Drop">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="320"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Margin="28">
+                    <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
+                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{StaticResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="Edit metadata" Style="{StaticResource PageTitle}"/>
+                            <TextBlock Text="Change a PDF's title, author, subject and keywords." Style="{StaticResource PageSubtitle}"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
+                            <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16,14">
+                                <DockPanel>
+                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource EditTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
+                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource EditIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
+                                    </Border>
+                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
+                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+
+                            <TextBlock Text="TITLE" Style="{StaticResource SectionLabel}"/>
+                            <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Title" Style="{StaticResource Input}"/>
+                            <TextBlock Text="AUTHOR" Style="{StaticResource SectionLabel}"/>
+                            <TextBox Text="{Binding Author, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Author" Style="{StaticResource Input}"/>
+                            <TextBlock Text="SUBJECT" Style="{StaticResource SectionLabel}"/>
+                            <TextBox Text="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Subject" Style="{StaticResource Input}"/>
+                            <TextBlock Text="KEYWORDS" Style="{StaticResource SectionLabel}"/>
+                            <TextBox Text="{Binding Keywords, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Keywords" AutomationProperties.HelpText="Separate keywords with commas." Style="{StaticResource Input}" ToolTip="Separate keywords with commas."/>
+                            <Label Content="{Binding StatusInfo}" Style="{StaticResource HintLabel}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                            <Button Command="{Binding RunSaveCommand}">
+                                <Button.Style>
+                                    <!-- Content lives in the style so the busy trigger can replace it -->
+                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                        <Setter Property="Content" Value="Save PDF"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                <Setter Property="Content" Value="Saving..."/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="24,24,24,16">
+                                <TextBlock Text="Edit metadata" Style="{StaticResource SidebarTitle}"/>
+
+                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Label Style="{StaticResource HintLabel}" Content="To update the original file instead, choose it with Browse."/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -437,6 +524,12 @@
                         <StackPanel Orientation="Horizontal">
                             <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconRotate}"/>
                             <TextBlock Text="Rotate PDF" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="navMetadata" AutomationProperties.Name="Edit metadata" Style="{StaticResource NavItem}" GroupName="Nav" Tag="5" Checked="Nav_Checked">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconTag}"/>
+                            <TextBlock Text="Edit metadata" VerticalAlignment="Center"/>
                         </StackPanel>
                     </RadioButton>
                 </StackPanel>

@@ -5,6 +5,7 @@ using iText.Forms;
 using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Navigation;
 using iText.Kernel.Utils;
+using iText.Kernel.XMP;
 
 namespace PDFManager.Services
 {
@@ -159,6 +160,61 @@ namespace PDFManager.Services
                 try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
             }
         }
+
+        public PdfMetadata ReadMetadata(string path)
+        {
+            using (var reader = new PdfReader(path))
+            using (var doc = new PdfDocument(reader))
+            {
+                PdfDocumentInfo info = doc.GetDocumentInfo();
+                return new PdfMetadata(info.GetTitle() ?? "", info.GetAuthor() ?? "", info.GetSubject() ?? "", info.GetKeywords() ?? "");
+            }
+        }
+
+        public void WriteMetadata(string sourcePath, string outputPath, PdfMetadata metadata)
+        {
+            // The temporary file is moved into place only after the source has been closed,
+            // so the output may be the source itself
+            string tempPath = outputPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var reader = new PdfReader(sourcePath))
+                using (var writer = new PdfWriter(tempPath))
+                using (var doc = new PdfDocument(reader, writer))
+                {
+                    // A blank value removes the entry rather than storing an empty string
+                    PdfDocumentInfo info = doc.GetDocumentInfo();
+                    info.SetMoreInfo("Title", ValueOrNull(metadata.Title));
+                    info.SetMoreInfo("Author", ValueOrNull(metadata.Author));
+                    info.SetMoreInfo("Subject", ValueOrNull(metadata.Subject));
+                    info.SetMoreInfo("Keywords", ValueOrNull(metadata.Keywords));
+
+                    // Many PDFs repeat these properties in an XMP stream, which some viewers prefer.
+                    // iText copies the document info into it on close but never removes anything,
+                    // and a value left there fills a removed info entry back in. So drop the old
+                    // values here and let that copy write back the ones still set
+                    XMPMeta xmp = doc.GetXmpMetadata();
+                    if (xmp != null)
+                    {
+                        xmp.DeleteProperty(XMPConst.NS_DC, PdfConst.Title);
+                        xmp.DeleteProperty(XMPConst.NS_DC, PdfConst.Creator);
+                        xmp.DeleteProperty(XMPConst.NS_DC, PdfConst.Description);
+                        xmp.DeleteProperty(XMPConst.NS_DC, PdfConst.Subject);
+                        xmp.DeleteProperty(XMPConst.NS_PDF, PdfConst.Keywords);
+                        doc.SetXmpMetadata(xmp);
+                    }
+                }
+
+                File.Move(tempPath, outputPath, overwrite: true);
+            }
+            finally
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            }
+        }
+
+        private static string ValueOrNull(string value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         public ISet<int> ParsePageRanges(string spec, int totalPages)
         {
