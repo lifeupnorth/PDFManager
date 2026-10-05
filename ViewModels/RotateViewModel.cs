@@ -12,6 +12,7 @@ namespace PDFManager.ViewModels
     public class RotateViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
+        private readonly PageListSelection _pageSelection;
 
         private string _sourcePath = string.Empty;
         public string SourcePath
@@ -36,6 +37,7 @@ namespace PDFManager.ViewModels
                 if (SetProperty(ref _rotateAllPages, value))
                 {
                     OnPropertyChanged(nameof(IsPageSpecVisible));
+                    _pageSelection.Refresh();
                 }
             }
         }
@@ -47,14 +49,14 @@ namespace PDFManager.ViewModels
         public string RotatePageSpec
         {
             get => _rotatePageSpec;
-            set => SetProperty(ref _rotatePageSpec, value);
+            set { if (SetProperty(ref _rotatePageSpec, value)) _pageSelection.Refresh(); }
         }
 
         private int _rotationAngle = 90;
         public int RotationAngle
         {
             get => _rotationAngle;
-            set => SetProperty(ref _rotationAngle, value);
+            set { if (SetProperty(ref _rotationAngle, value)) ShowRotationPreview(); }
         }
 
         private string _pageCountInfo = string.Empty;
@@ -71,13 +73,18 @@ namespace PDFManager.ViewModels
             set => SetProperty(ref _isBusy, value);
         }
 
+        public PageThumbnailsViewModel Thumbnails { get; }
+
         public ICommand OpenFileCommand { get; }
         public ICommand BrowseOutputCommand { get; }
         public ICommand RunRotateCommand { get; }
 
-        public RotateViewModel(IPdfService pdfService)
+        public RotateViewModel(IPdfService pdfService, IPageRenderer pageRenderer)
         {
             _pdfService = pdfService;
+            Thumbnails = new PageThumbnailsViewModel(pageRenderer);
+            _pageSelection = new PageListSelection(Thumbnails, () => RotatePageSpec, list => RotatePageSpec = list, () => RotateAllPages, () => RotateAllPages = false);
+            _pageSelection.Changed += ShowRotationPreview;
             OpenFileCommand = new RelayCommand(ExecuteOpenFile);
             BrowseOutputCommand = new RelayCommand(ExecuteBrowseOutput);
             RunRotateCommand = new RelayCommand(ExecuteRunRotate, CanExecuteRunRotate);
@@ -176,9 +183,17 @@ namespace PDFManager.ViewModels
             }
         }
 
+        // Turn the thumbnails of the pages that will rotate, so the result shows before running
+        private void ShowRotationPreview()
+        {
+            foreach (var page in Thumbnails.Pages)
+                page.PreviewRotation = RotateAllPages || page.IsSelected ? RotationAngle : 0;
+        }
+
         public async Task UpdateFileAsync(string path)
         {
             SourcePath = path;
+            _ = Thumbnails.LoadAsync(path); // the page previews fill in while the page count is read
             OutputPath = Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path) + "_rotated.pdf");
             PageCountInfo = "Reading page count...";
 

@@ -25,7 +25,7 @@ namespace PDFManager.ViewModels
         public string SplitPageNum
         {
             get => _splitPageNum;
-            set => SetProperty(ref _splitPageNum, value);
+            set { if (SetProperty(ref _splitPageNum, value)) ShowSplitPoint(); }
         }
 
         private string _outputFolder = string.Empty;
@@ -49,12 +49,17 @@ namespace PDFManager.ViewModels
             set => SetProperty(ref _isBusy, value);
         }
 
+        public PageThumbnailsViewModel Thumbnails { get; }
+
         public ICommand OpenFileCommand { get; }
         public ICommand RunSplitCommand { get; }
 
-        public SplitViewModel(IPdfService pdfService)
+        public SplitViewModel(IPdfService pdfService, IPageRenderer pageRenderer)
         {
             _pdfService = pdfService;
+            Thumbnails = new PageThumbnailsViewModel(pageRenderer);
+            Thumbnails.PageClicked += SplitAfterPage;
+            Thumbnails.PagesLoaded += ShowSplitPoint;
             OpenFileCommand = new RelayCommand(ExecuteOpenFile);
             RunSplitCommand = new RelayCommand(ExecuteSplit, CanExecuteSplit);
         }
@@ -132,9 +137,24 @@ namespace PDFManager.ViewModels
 
         private bool CanExecuteSplit(object? parameter) => !IsBusy;
 
+        // A click on a page splits after it; there is nothing to split after the last page
+        private void SplitAfterPage(int page)
+        {
+            if (page < Thumbnails.Pages.Count)
+                SplitPageNum = page.ToString();
+        }
+
+        private void ShowSplitPoint()
+        {
+            int.TryParse(SplitPageNum, out int splitAfter);
+            foreach (var page in Thumbnails.Pages)
+                page.IsSplitAfter = page.PageNumber == splitAfter && splitAfter < Thumbnails.Pages.Count;
+        }
+
         public async Task UpdateFileAsync(string path)
         {
             SourcePath = path;
+            _ = Thumbnails.LoadAsync(path); // the page previews fill in while the page count is read
             OutputFolder = Path.GetDirectoryName(path)!;
             PageCountInfo = "Reading page count...";
 

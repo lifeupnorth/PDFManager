@@ -420,41 +420,6 @@ namespace PDFManager.Services
         private static string ValueOrNull(string value) =>
             string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-        public ISet<int> ParsePageRanges(string spec, int totalPages)
-        {
-            var pages = new SortedSet<int>();
-
-            foreach (var rawToken in spec.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                string token = rawToken.Trim();
-                int start, end;
-
-                int dash = token.IndexOf('-');
-                if (dash < 0)
-                {
-                    if (!int.TryParse(token, out start))
-                        throw new InvalidOperationException($"\"{token}\" is not a valid page number.");
-                    end = start;
-                }
-                else
-                {
-                    if (!int.TryParse(token.Substring(0, dash), out start) || !int.TryParse(token.Substring(dash + 1), out end))
-                        throw new InvalidOperationException($"\"{token}\" is not a valid page range. Use the form 5-7.");
-                    if (end < start)
-                        throw new InvalidOperationException($"\"{token}\" is not a valid page range: the end page is before the start page.");
-                }
-
-                if (start < 1 || end > totalPages)
-                    throw new InvalidOperationException($"Page range \"{token}\" is out of range. The document has {totalPages} pages.");
-
-                for (int p = start; p <= end; p++)
-                    pages.Add(p);
-            }
-
-            if (pages.Count == 0)
-                throw new InvalidOperationException("Please enter at least one page.");
-
-            return pages;
-        }
+        public ISet<int> ParsePageRanges(string spec, int totalPages) => PageRanges.Parse(spec, totalPages);
     }
 }

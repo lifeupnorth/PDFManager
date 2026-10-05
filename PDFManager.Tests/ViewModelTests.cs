@@ -21,7 +21,7 @@ namespace PDFManager.Tests
         [InlineData(1, "This document has only 1 page and cannot be split.")]
         public async Task Split_hint_describes_the_valid_split_pages(int pages, string hint)
         {
-            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => pages });
+            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Report.pdf"));
 
@@ -32,7 +32,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Split_hint_flags_a_password_protected_file()
         {
-            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") });
+            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
 
@@ -42,7 +42,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Split_hint_reports_an_unreadable_file()
         {
-            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => throw new IOException("gone") });
+            var vm = new SplitViewModel(new FakePdfService { PageCount = _ => throw new IOException("gone") }, new FakePageRenderer());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Broken.pdf"));
 
@@ -62,7 +62,7 @@ namespace PDFManager.Tests
                         firstMayFinish.Wait();
                     return path == first ? 9 : 3;
                 }
-            });
+            }, new FakePageRenderer());
 
             Task slow = vm.UpdateFileAsync(first);
             await vm.UpdateFileAsync(second);
@@ -78,7 +78,7 @@ namespace PDFManager.Tests
         [InlineData(4, "Document has 4 pages. Example: 1, 3, 5-7")]
         public async Task Rotate_hint_gives_the_page_count_and_an_example(int pages, string hint)
         {
-            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => pages });
+            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Scan.pdf"));
 
@@ -88,7 +88,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Rotate_suggests_an_output_next_to_the_source()
         {
-            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => 1 });
+            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => 1 }, new FakePageRenderer());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Scan.pdf"));
 
@@ -98,7 +98,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Rotate_hint_flags_a_password_protected_file()
         {
-            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") });
+            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
 
@@ -110,7 +110,7 @@ namespace PDFManager.Tests
         [InlineData(12, "Document has 12 pages. Example: 1, 3, 5-7")]
         public async Task Extract_hint_gives_the_page_count_and_an_example(int pages, string hint)
         {
-            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => pages });
+            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Book.pdf"));
 
@@ -121,7 +121,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Extract_hint_flags_a_password_protected_file()
         {
-            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") });
+            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
 
@@ -141,7 +141,7 @@ namespace PDFManager.Tests
                         firstMayFinish.Wait();
                     return path == first ? 9 : 3;
                 }
-            });
+            }, new FakePageRenderer());
 
             Task slow = vm.UpdateFileAsync(first);
             await vm.UpdateFileAsync(second);
@@ -317,7 +317,7 @@ namespace PDFManager.Tests
         [InlineData(3, "Document has 3 pages. Example: 1, 3, 5-7")]
         public async Task Watermark_hint_gives_the_page_count_and_an_example(int pages, string hint)
         {
-            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => pages });
+            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Report.pdf"));
 
@@ -328,7 +328,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Watermark_hint_flags_a_password_protected_file()
         {
-            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") });
+            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
 
@@ -338,7 +338,7 @@ namespace PDFManager.Tests
         [Fact]
         public void Watermark_defaults_to_a_medium_diagonal_CONFIDENTIAL_on_all_pages()
         {
-            var vm = new WatermarkViewModel(new FakePdfService());
+            var vm = new WatermarkViewModel(new FakePdfService(), new FakePageRenderer());
 
             Assert.Equal(("CONFIDENTIAL", true, 30, true), (vm.WatermarkText, vm.IsDiagonal, vm.OpacityPercent, vm.AllPages));
             Assert.False(vm.IsPageSpecEnabled);
@@ -347,7 +347,7 @@ namespace PDFManager.Tests
         [Fact]
         public void Watermark_preview_follows_the_direction_and_opacity()
         {
-            var vm = new WatermarkViewModel(new FakePdfService());
+            var vm = new WatermarkViewModel(new FakePdfService(), new FakePageRenderer());
             var changed = new List<string?>();
             vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
@@ -369,7 +369,7 @@ namespace PDFManager.Tests
         [Fact]
         public void Watermark_page_box_is_enabled_only_for_specific_pages()
         {
-            var vm = new WatermarkViewModel(new FakePdfService());
+            var vm = new WatermarkViewModel(new FakePdfService(), new FakePageRenderer());
             var changed = new List<string?>();
             vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
@@ -390,27 +390,6 @@ namespace PDFManager.Tests
 
             Assert.Equal(new[] { b, a, c }, vm.MergeFiles);
             Assert.False(vm.IsAddingFiles);
-        }
-
-        private sealed class FakePdfService : IPdfService
-        {
-            public Func<string, int> PageCount { get; init; } = _ => 1;
-            public Func<string, PdfMetadata> Metadata { get; init; } = _ => new PdfMetadata("", "", "", "");
-            public Func<string, PdfProtection> Protection { get; init; } = _ => PdfProtection.None;
-
-            public int GetPageCount(string path) => PageCount(path);
-            public string GetSplitDestPattern(string sourcePath) => throw new NotSupportedException();
-            public void SplitPdf(string sourcePath, int splitPage, string folderPath) => throw new NotSupportedException();
-            public void MergePdfs(string outputPath, List<string> sourceFiles) => throw new NotSupportedException();
-            public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees) => throw new NotSupportedException();
-            public void ExtractPages(string sourcePath, string outputPath, string pageSpec) => throw new NotSupportedException();
-            public PdfMetadata ReadMetadata(string path) => Metadata(path);
-            public void WriteMetadata(string sourcePath, string outputPath, PdfMetadata metadata) => throw new NotSupportedException();
-            public PdfProtection GetProtection(string path) => Protection(path);
-            public void ProtectPdf(string sourcePath, string outputPath, string password) => throw new NotSupportedException();
-            public void UnlockPdf(string sourcePath, string outputPath, string password) => throw new NotSupportedException();
-            public void AddWatermark(string sourcePath, string outputPath, WatermarkOptions options) => throw new NotSupportedException();
-            public ISet<int> ParsePageRanges(string spec, int totalPages) => throw new NotSupportedException();
         }
     }
 }

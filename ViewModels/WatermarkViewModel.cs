@@ -11,6 +11,7 @@ namespace PDFManager.ViewModels
     public class WatermarkViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
+        private readonly PageListSelection _pageSelection;
 
         // The preview is an A4 portrait page, 210 x 297 units
         public const double PreviewPageWidth = 210, PreviewPageHeight = 297;
@@ -69,7 +70,10 @@ namespace PDFManager.ViewModels
             set
             {
                 if (SetProperty(ref _allPages, value))
+                {
                     OnPropertyChanged(nameof(IsPageSpecEnabled));
+                    _pageSelection.Refresh();
+                }
             }
         }
 
@@ -79,7 +83,7 @@ namespace PDFManager.ViewModels
         public string PageSpec
         {
             get => _pageSpec;
-            set => SetProperty(ref _pageSpec, value);
+            set { if (SetProperty(ref _pageSpec, value)) _pageSelection.Refresh(); }
         }
 
         private string _pageCountInfo = string.Empty;
@@ -107,13 +111,17 @@ namespace PDFManager.ViewModels
         public double PreviewTextLeft => (PreviewPageWidth - PreviewTextWidth) / 2;
         public double PreviewTextTop => (PreviewPageHeight - PreviewTextMaxHeight) / 2;
 
+        public PageThumbnailsViewModel Thumbnails { get; }
+
         public ICommand OpenFileCommand { get; }
         public ICommand BrowseOutputCommand { get; }
         public ICommand RunWatermarkCommand { get; }
 
-        public WatermarkViewModel(IPdfService pdfService)
+        public WatermarkViewModel(IPdfService pdfService, IPageRenderer pageRenderer)
         {
             _pdfService = pdfService;
+            Thumbnails = new PageThumbnailsViewModel(pageRenderer);
+            _pageSelection = new PageListSelection(Thumbnails, () => PageSpec, list => PageSpec = list, () => AllPages, () => AllPages = false);
             OpenFileCommand = new RelayCommand(ExecuteOpenFile);
             BrowseOutputCommand = new RelayCommand(ExecuteBrowseOutput);
             RunWatermarkCommand = new RelayCommand(ExecuteRunWatermark, CanExecuteRunWatermark);
@@ -218,6 +226,7 @@ namespace PDFManager.ViewModels
         public async Task UpdateFileAsync(string path)
         {
             SourcePath = path;
+            _ = Thumbnails.LoadAsync(path); // the page previews fill in while the page count is read
             OutputPath = Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path) + "_watermarked.pdf");
             PageCountInfo = "Reading page count...";
 

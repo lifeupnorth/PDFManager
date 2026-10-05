@@ -23,16 +23,16 @@ namespace PDFManager.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public MainViewModel(IPdfService pdfService)
+        public MainViewModel(IPdfService pdfService, IPageRenderer pageRenderer)
         {
-            Split = new SplitViewModel(pdfService);
+            Split = new SplitViewModel(pdfService, pageRenderer);
             Merge = new MergeViewModel(pdfService);
-            Rotate = new RotateViewModel(pdfService);
-            Extract = new ExtractViewModel(pdfService);
+            Rotate = new RotateViewModel(pdfService, pageRenderer);
+            Extract = new ExtractViewModel(pdfService, pageRenderer);
             Metadata = new MetadataViewModel(pdfService);
             Protect = new ProtectViewModel(pdfService);
             Unlock = new UnlockViewModel(pdfService);
-            Watermark = new WatermarkViewModel(pdfService);
+            Watermark = new WatermarkViewModel(pdfService, pageRenderer);
             HomeView = new HomeViewModel();
             _currentView = HomeView;
         }

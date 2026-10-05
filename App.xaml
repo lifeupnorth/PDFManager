@@ -241,6 +241,55 @@
             </Setter>
         </Style>
 
+        <!-- A page thumbnail: a click is passed to the tool, which selects the page or splits after it.
+             The DataContext is a PageThumbnail -->
+        <Style x:Key="PageThumbnail" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Margin" Value="0,0,16,14"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <StackPanel Width="120">
+                            <Grid>
+                                <Border x:Name="frame" Height="160" CornerRadius="8" Background="{StaticResource CardBrush}" BorderBrush="Transparent" BorderThickness="2" Padding="6">
+                                    <Grid>
+                                        <TextBlock Text="{Binding PageNumber}" Foreground="{StaticResource TextMutedBrush}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Image Source="{Binding Image}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality">
+                                            <Image.LayoutTransform>
+                                                <RotateTransform Angle="{Binding PreviewRotation}"/>
+                                            </Image.LayoutTransform>
+                                        </Image>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="check" Width="22" Height="22" CornerRadius="11" Background="{StaticResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-6,-6,0" Visibility="Collapsed">
+                                    <Path Data="M6,11.5 L9.5,15 L16,8" Stroke="White" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                </Border>
+                                <!-- Split marker, in the gap after the page -->
+                                <Border x:Name="split" Width="4" CornerRadius="2" Background="{StaticResource AccentBrush}" HorizontalAlignment="Right" Margin="0,6,-10,6" Visibility="Collapsed"/>
+                            </Grid>
+                            <TextBlock Text="{Binding PageNumber}" HorizontalAlignment="Center" Margin="0,6,0,0" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="frame" Property="BorderBrush" Value="{StaticResource BorderStrongBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="frame" Property="BorderBrush" Value="{StaticResource AccentHoverBrush}"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="frame" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="check" Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsSplitAfter}" Value="True">
+                                <Setter TargetName="split" Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Read-only value shown in the sidebar (file paths, folders) -->
         <Style x:Key="ValueLabel" TargetType="Label">
             <Setter Property="Padding" Value="0"/>

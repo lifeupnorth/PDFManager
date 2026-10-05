@@ -47,6 +47,26 @@
             </DockPanel>
         </DataTemplate>
 
+        <!-- Page thumbnails for a tool's selected file -->
+        <DataTemplate DataType="{x:Type vm:PageThumbnailsViewModel}">
+            <StackPanel>
+                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Hint}" TextAlignment="Left" Visibility="{Binding StatusText, Converter={StaticResource NotEmptyToVisibility}}"/>
+                <ItemsControl ItemsSource="{Binding Pages}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource PageThumbnail}" AutomationProperties.Name="{Binding AccessibleName}"
+                                    Command="{Binding DataContext.PageClickCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </DataTemplate>
+
         <!-- DataTemplates for ViewModels -->
         <DataTemplate DataType="{x:Type vm:HomeViewModel}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -150,22 +170,28 @@
                         </StackPanel>
                     </Grid>
 
-                    <StackPanel Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
-                        <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                        <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16,14">
-                            <DockPanel>
-                                <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource FileTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource OrganizeIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                </Border>
-                                <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                    <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-                        <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
-                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
+                            <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16,14">
+                                <DockPanel>
+                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource FileTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
+                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource OrganizeIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
+                                    </Border>
+                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
+                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+
+                            <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
+                            <TextBlock Text="Click a page to split the document after it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,0,0,12"/>
+                            <ContentControl Content="{Binding Thumbnails}" Focusable="False"/>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
 
                 <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
@@ -221,22 +247,28 @@
                         </StackPanel>
                     </Grid>
 
-                    <StackPanel Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
-                        <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                        <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16,14">
-                            <DockPanel>
-                                <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource FileTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource OrganizeIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                </Border>
-                                <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                    <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-                        <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
-                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
+                            <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16,14">
+                                <DockPanel>
+                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource FileTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
+                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource OrganizeIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
+                                    </Border>
+                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
+                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+
+                            <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
+                            <TextBlock Text="Click pages to choose which ones to extract." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,0,0,12"/>
+                            <ContentControl Content="{Binding Thumbnails}" Focusable="False"/>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
 
                 <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
@@ -360,22 +392,28 @@
                         </StackPanel>
                     </Grid>
 
-                    <StackPanel Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
-                        <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                        <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16,14">
-                            <DockPanel>
-                                <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource EditTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource EditIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                </Border>
-                                <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                    <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-                        <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
-                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
+                            <Border Background="{StaticResource CardBrush}" CornerRadius="10" Padding="16,14">
+                                <DockPanel>
+                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource EditTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
+                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource EditIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
+                                    </Border>
+                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
+                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+
+                            <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
+                            <TextBlock Text="Click pages to rotate only those. The previews show the result." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,0,0,12"/>
+                            <ContentControl Content="{Binding Thumbnails}" Focusable="False"/>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
 
                 <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
@@ -401,8 +439,8 @@
 
                                 <TextBlock Text="PAGES TO ROTATE" Style="{StaticResource SectionLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <RadioButton Content="All pages" IsChecked="{Binding RotateAllPages}" Style="{StaticResource OptionRadio}" GroupName="RotatePages" Margin="0,0,4,8"/>
-                                    <RadioButton Content="Specific pages" Style="{StaticResource OptionRadio}" GroupName="RotatePages" Margin="4,0,0,8"/>
+                                    <RadioButton Content="All pages" IsChecked="{Binding RotateAllPages, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="RotatePages" Margin="0,0,4,8"/>
+                                    <RadioButton Content="Specific pages" IsChecked="{Binding RotateAllPages, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="RotatePages" Margin="4,0,0,8"/>
                                 </UniformGrid>
                                 <TextBox Text="{Binding RotatePageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecVisible}" AutomationProperties.Name="Pages to rotate" AutomationProperties.HelpText="{Binding PageCountInfo}" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
@@ -696,6 +734,10 @@
                                 </Canvas>
                             </Border>
                             <TextBlock Text="Shown on an A4 page. The watermark is sized to fit each page of the PDF." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,8,0,0"/>
+
+                            <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
+                            <TextBlock Text="Click pages to watermark only those." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,0,0,12"/>
+                            <ContentControl Content="{Binding Thumbnails}" Focusable="False"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
@@ -739,8 +781,8 @@
 
                                 <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <RadioButton Content="All pages" IsChecked="{Binding AllPages}" Style="{StaticResource OptionRadio}" GroupName="WatermarkPages" Margin="0,0,4,8"/>
-                                    <RadioButton Content="Specific pages" Style="{StaticResource OptionRadio}" GroupName="WatermarkPages" Margin="4,0,0,8"/>
+                                    <RadioButton Content="All pages" IsChecked="{Binding AllPages, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="WatermarkPages" Margin="0,0,4,8"/>
+                                    <RadioButton Content="Specific pages" IsChecked="{Binding AllPages, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="WatermarkPages" Margin="4,0,0,8"/>
                                 </UniformGrid>
                                 <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecEnabled}" AutomationProperties.Name="Pages to watermark" AutomationProperties.HelpText="{Binding PageCountInfo}" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>

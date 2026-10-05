@@ -11,7 +11,7 @@ namespace PDFManager
         public MainWindow()
         {
             InitializeComponent();
-            this.DataContext = new MainViewModel(new PdfService());
+            this.DataContext = new MainViewModel(new PdfService(), new WindowsPageRenderer());
         }
 
         private MainViewModel ViewModel => (MainViewModel)DataContext;

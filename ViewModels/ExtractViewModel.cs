@@ -11,6 +11,7 @@ namespace PDFManager.ViewModels
     public class ExtractViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
+        private readonly PageListSelection _pageSelection;
 
         private string _sourcePath = string.Empty;
         public string SourcePath
@@ -30,7 +31,7 @@ namespace PDFManager.ViewModels
         public string PageSpec
         {
             get => _pageSpec;
-            set => SetProperty(ref _pageSpec, value);
+            set { if (SetProperty(ref _pageSpec, value)) _pageSelection.Refresh(); }
         }
 
         private string _pageCountInfo = string.Empty;
@@ -47,13 +48,17 @@ namespace PDFManager.ViewModels
             set => SetProperty(ref _isBusy, value);
         }
 
+        public PageThumbnailsViewModel Thumbnails { get; }
+
         public ICommand OpenFileCommand { get; }
         public ICommand BrowseOutputCommand { get; }
         public ICommand RunExtractCommand { get; }
 
-        public ExtractViewModel(IPdfService pdfService)
+        public ExtractViewModel(IPdfService pdfService, IPageRenderer pageRenderer)
         {
             _pdfService = pdfService;
+            Thumbnails = new PageThumbnailsViewModel(pageRenderer);
+            _pageSelection = new PageListSelection(Thumbnails, () => PageSpec, list => PageSpec = list);
             OpenFileCommand = new RelayCommand(ExecuteOpenFile);
             BrowseOutputCommand = new RelayCommand(ExecuteBrowseOutput);
             RunExtractCommand = new RelayCommand(ExecuteRunExtract, CanExecuteRunExtract);
@@ -150,6 +155,7 @@ namespace PDFManager.ViewModels
         public async Task UpdateFileAsync(string path)
         {
             SourcePath = path;
+            _ = Thumbnails.LoadAsync(path); // the page previews fill in while the page count is read
             OutputPath = Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path) + "_extracted.pdf");
             PageCountInfo = "Reading page count...";
 
