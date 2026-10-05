@@ -30,24 +30,6 @@
         <SolidColorBrush x:Key="EditIconBrush" Color="#6A53C4"/>
         <SolidColorBrush x:Key="FileTileBrush" Color="#F4C3BF"/>
 
-        <!-- Tab control with no tab strip: acts as a view switcher -->
-        <Style x:Key="ViewSwitcher" TargetType="TabControl">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabControl">
-                        <Grid>
-                            <!-- The TabControl only materialises its items through an items host, so keep a hidden one -->
-                            <TabPanel x:Name="HeaderPanel" IsItemsHost="True" Visibility="Collapsed"/>
-                            <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"/>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <!-- Left navigation item -->
         <Style x:Key="NavItem" TargetType="RadioButton">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>

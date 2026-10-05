@@ -113,31 +113,55 @@ namespace PDFManager.ViewModels
 
         private bool CanExecuteRunRotate(object? parameter)
         {
-            if (IsBusy || string.IsNullOrWhiteSpace(SourcePath) || string.IsNullOrWhiteSpace(OutputPath) || SourcePath == OutputPath)
-                return false;
-
-            if (!string.IsNullOrWhiteSpace(RotatePageSpec) && string.IsNullOrWhiteSpace(RotatePageSpec))
-                return false;
-
-            return true;
+            return !IsBusy && !string.IsNullOrWhiteSpace(SourcePath) && !string.IsNullOrWhiteSpace(OutputPath);
         }
 
         private async void ExecuteRunRotate(object? parameter)
         {
+            // PdfWriter truncates the output as soon as it is created, so writing
+            // over the source would destroy it before it is read
+            if (string.Equals(Path.GetFullPath(SourcePath), Path.GetFullPath(OutputPath), StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("The output file cannot be the same as the source file. Please choose a different output path.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            string pageSpec = RotateAllPages ? null : RotatePageSpec;
+            if (pageSpec != null && string.IsNullOrWhiteSpace(pageSpec))
+            {
+                MessageBox.Show("Please enter the pages to rotate (for example: 1, 3, 5-7), or choose \"All pages\".", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (File.Exists(OutputPath))
+            {
+                var result = MessageBox.Show(
+                    $"\"{OutputPath}\" already exists and will be overwritten.\n\nContinue?",
+                    "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (result != MessageBoxResult.Yes)
+                    return;
+            }
+
             try
             {
                 IsBusy = true;
-                int totalPages;
-                using (var probe = new iText.Kernel.Pdf.PdfDocument(new iText.Kernel.Pdf.PdfReader(SourcePath)))
-                    totalPages = probe.GetNumberOfPages();
+                // Read the inputs here: the work runs on a background thread
+                string sourcePath = SourcePath, outputPath = OutputPath;
+                int degrees = RotationAngle;
 
-                string pageSpec = RotateAllPages ? null : RotatePageSpec;
-
-                await Task.Run(() => _pdfService.RotatePdf(SourcePath, OutputPath, pageSpec, RotationAngle, totalPages));
+                await Task.Run(() => _pdfService.RotatePdf(sourcePath, outputPath, pageSpec, degrees));
 
                 var openFolder = MessageBox.Show("PDF rotated successfully!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
                 if (openFolder == MessageBoxResult.Yes)
-                    ShowInExplorer(OutputPath);
+                    ShowInExplorer(outputPath);
+            }
+            catch (iText.Kernel.Exceptions.BadPasswordException)
+            {
+                MessageBox.Show("This PDF is password-protected and cannot be rotated.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch (iText.IO.Exceptions.IOException)
+            {
+                MessageBox.Show("This file is not a valid PDF or is corrupted.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch (Exception ex)
             {
@@ -161,6 +185,10 @@ namespace PDFManager.ViewModels
                     int pages = pdfDoc.GetNumberOfPages();
                     PageCountInfo = $"Document has {pages} page{(pages == 1 ? "" : "s")}. Example: 1, 3, 5-7";
                 }
+            }
+            catch (iText.Kernel.Exceptions.BadPasswordException)
+            {
+                PageCountInfo = "This PDF is password-protected and cannot be rotated.";
             }
             catch
             {

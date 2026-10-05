@@ -61,35 +61,66 @@ namespace PDFManager.Services
 
                 foreach (var filePath in sourceFiles)
                 {
-                    using (var srcDoc = new PdfDocument(new PdfReader(filePath)))
+                    try
                     {
-                        int numberOfPages = srcDoc.GetNumberOfPages();
-                        srcDoc.CopyPagesTo(1, numberOfPages, resultDoc, formCopier);
+                        using (var srcDoc = new PdfDocument(new PdfReader(filePath)))
+                        {
+                            int numberOfPages = srcDoc.GetNumberOfPages();
+                            srcDoc.CopyPagesTo(1, numberOfPages, resultDoc, formCopier);
 
-                        var rootOutline = resultDoc.GetOutlines(false);
-                        var outline = rootOutline.AddOutline(Path.GetFileNameWithoutExtension(filePath));
-                        outline.AddDestination(PdfExplicitDestination.CreateFit(resultDoc.GetPage(pageIndex)));
+                            var rootOutline = resultDoc.GetOutlines(false);
+                            var outline = rootOutline.AddOutline(Path.GetFileNameWithoutExtension(filePath));
+                            outline.AddDestination(PdfExplicitDestination.CreateFit(resultDoc.GetPage(pageIndex)));
 
-                        pageIndex += numberOfPages;
+                            pageIndex += numberOfPages;
+                        }
+                    }
+                    catch (iText.Kernel.Exceptions.BadPasswordException)
+                    {
+                        throw new InvalidOperationException($"'{Path.GetFileName(filePath)}' is password-protected and cannot be merged.");
+                    }
+                    catch (iText.IO.Exceptions.IOException)
+                    {
+                        throw new InvalidOperationException($"'{Path.GetFileName(filePath)}' is not a valid PDF or is corrupted.");
                     }
                 }
             }
         }
 
-        public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees, int totalPages)
+        public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees)
         {
-            ISet<int> pagesToRotate = ParsePageRanges(pageSpec, totalPages);
+            // Validate against the source before creating the writer, because
+            // PdfWriter truncates the output file as soon as it is constructed
+            int totalPages;
+            using (var probe = new PdfDocument(new PdfReader(sourcePath)))
+                totalPages = probe.GetNumberOfPages();
 
-            using (var pdfDoc = new PdfDocument(new PdfReader(sourcePath), new PdfWriter(outputPath)))
+            // A null spec means "All pages"
+            ISet<int> pagesToRotate = pageSpec == null
+                ? null
+                : ParsePageRanges(pageSpec, totalPages);
+
+            var writer = new PdfWriter(outputPath);
+            try
             {
-                for (int i = 1; i <= totalPages; i++)
+                using (var pdfDoc = new PdfDocument(new PdfReader(sourcePath), writer))
                 {
-                    if (pagesToRotate.Contains(i))
+                    for (int i = 1; i <= totalPages; i++)
                     {
-                        PdfPage page = pdfDoc.GetPage(i);
-                        page.SetRotation((page.GetRotation() + degrees) % 360);
+                        if (pagesToRotate == null || pagesToRotate.Contains(i))
+                        {
+                            PdfPage page = pdfDoc.GetPage(i);
+                            page.SetRotation((page.GetRotation() + degrees) % 360);
+                        }
                     }
                 }
+            }
+            catch
+            {
+                // The writer has already truncated the output, so don't leave a broken partial PDF behind
+                try { writer.Close(); } catch { }
+                try { File.Delete(outputPath); } catch { }
+                throw;
             }
         }
 

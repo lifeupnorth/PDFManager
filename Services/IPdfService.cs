@@ -9,7 +9,7 @@ namespace PDFManager.Services
         string GetSplitDestPattern(string sourcePath);
         void SplitPdf(string sourcePath, int splitPage, string folderPath);
         void MergePdfs(string outputPath, List<string> sourceFiles);
-        void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees, int totalPages);
+        void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees);
         ISet<int> ParsePageRanges(string spec, int totalPages);
     }
 }

@@ -49,12 +49,25 @@ namespace PDFManager.ViewModels
             set => SetProperty(ref _isBusy, value);
         }
 
+        public ICommand OpenFileCommand { get; }
         public ICommand RunSplitCommand { get; }
 
         public SplitViewModel(IPdfService pdfService)
         {
             _pdfService = pdfService;
+            OpenFileCommand = new RelayCommand(ExecuteOpenFile);
             RunSplitCommand = new RelayCommand(ExecuteSplit, CanExecuteSplit);
+        }
+
+        private void ExecuteOpenFile(object? parameter)
+        {
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "PDF Files (*.pdf)|*.pdf"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+                UpdateFile(openFileDialog.FileName);
         }
 
         private async void ExecuteSplit(object? parameter)

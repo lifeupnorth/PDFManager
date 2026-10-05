@@ -1,0 +1,44 @@
+using System;
+using System.Globalization;
+using System.IO;
+using System.Windows;
+using System.Windows.Data;
+
+namespace PDFManager
+{
+    public class FileNameConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is string path ? Path.GetFileName(path) : value;
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// Shows an element when a string is non-empty (or, with VisibleWhenEmpty, when it is empty).
+    /// Used to switch a tool's workspace between its "pick a file" and "file selected" states.
+    /// </summary>
+    public class StringVisibilityConverter : IValueConverter
+    {
+        public bool VisibleWhenEmpty { get; set; }
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            bool isEmpty = string.IsNullOrWhiteSpace(value?.ToString());
+            return isEmpty == VisibleWhenEmpty ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    public class InverseBoolToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is true ? Visibility.Collapsed : Visibility.Visible;
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+}

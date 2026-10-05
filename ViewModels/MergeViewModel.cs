@@ -24,7 +24,7 @@ namespace PDFManager.ViewModels
             set => SetProperty(ref _selectedFile, value);
         }
 
-        private string _outputPath = string.Empty;
+        private string _outputPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Merged File.pdf");
         public string OutputPath
         {
             get => _outputPath;
@@ -55,6 +55,9 @@ namespace PDFManager.ViewModels
             MoveDownCommand = new RelayCommand(ExecuteMoveDown, CanExecuteMoveDown);
             BrowseOutputCommand = new RelayCommand(ExecuteBrowseOutput);
             RunMergeCommand = new RelayCommand(ExecuteRunMerge, CanExecuteRunMerge);
+
+            // Collection changes are not property changes, so ask for a CanExecute requery here too
+            MergeFiles.CollectionChanged += (s, e) => CommandManager.InvalidateRequerySuggested();
         }
 
         private void ExecuteAddFiles(object? parameter)
@@ -66,21 +69,35 @@ namespace PDFManager.ViewModels
             };
 
             if (openFileDialog.ShowDialog() == true)
-            {
-                foreach (var file in openFileDialog.FileNames)
-                {
-                    if (MergeFiles.Any(f => string.Equals(f, file, StringComparison.OrdinalIgnoreCase)))
-                        continue;
+                AddFiles(openFileDialog.FileNames);
+        }
 
-                    try
-                    {
-                        using (var reader = new iText.Kernel.Pdf.PdfReader(file))
-                        using (var readerDoc = new iText.Kernel.Pdf.PdfDocument(reader)) { }
-                        MergeFiles.Add(file);
-                    }
-                    catch { }
+        public void AddFiles(IEnumerable<string> files)
+        {
+            var skipped = new List<string>();
+            foreach (var file in files)
+            {
+                if (MergeFiles.Any(f => string.Equals(f, file, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                try
+                {
+                    using (var reader = new iText.Kernel.Pdf.PdfReader(file))
+                    using (var readerDoc = new iText.Kernel.Pdf.PdfDocument(reader)) { }
+                    MergeFiles.Add(file);
+                }
+                catch (iText.Kernel.Exceptions.BadPasswordException)
+                {
+                    skipped.Add($"{Path.GetFileName(file)} (password-protected)");
+                }
+                catch
+                {
+                    skipped.Add($"{Path.GetFileName(file)} (not a valid PDF)");
                 }
             }
+
+            if (skipped.Any())
+                MessageBox.Show($"The following files were not added:\n{string.Join("\n", skipped)}", "Some Files Skipped", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         private bool CanExecuteRemoveFile(object? parameter) => !string.IsNullOrEmpty(SelectedFile);
@@ -126,10 +143,7 @@ namespace PDFManager.ViewModels
 
         private bool CanExecuteRunMerge(object? parameter)
         {
-            if (IsBusy || MergeFiles.Count == 0 || string.IsNullOrWhiteSpace(OutputPath))
-                return false;
-
-            if (MergeFiles.Any(f => string.Equals(f, OutputPath, StringComparison.OrdinalIgnoreCase)))
+            if (IsBusy || MergeFiles.Count < 2 || string.IsNullOrWhiteSpace(OutputPath))
                 return false;
 
             if (!Directory.Exists(Path.GetDirectoryName(OutputPath)))
@@ -140,6 +154,31 @@ namespace PDFManager.ViewModels
 
         private async void ExecuteRunMerge(object? parameter)
         {
+            var missingFiles = MergeFiles.Where(f => !File.Exists(f)).ToList();
+            if (missingFiles.Any())
+            {
+                MessageBox.Show($"The following files no longer exist:\n{string.Join("\n", missingFiles)}", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // PdfWriter truncates the output as soon as it is created, and a failed merge
+            // deletes it, so the output must never be one of the inputs
+            string fullOutputPath = Path.GetFullPath(OutputPath);
+            if (MergeFiles.Any(f => string.Equals(Path.GetFullPath(f), fullOutputPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                MessageBox.Show("The output file cannot be one of the files being merged. Please choose a different output path.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (File.Exists(OutputPath))
+            {
+                var result = MessageBox.Show(
+                    $"\"{OutputPath}\" already exists and will be overwritten.\n\nContinue?",
+                    "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (result != MessageBoxResult.Yes)
+                    return;
+            }
+
             try
             {
                 IsBusy = true;
