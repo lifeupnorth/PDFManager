@@ -145,7 +145,7 @@
                                 <TextBlock Text="Split PDF" Style="{StaticResource SidebarTitle}"/>
 
                                 <TextBlock Text="SPLIT AFTER PAGE" Style="{StaticResource SectionLabel}"/>
-                                <TextBox Text="{Binding SplitPageNum, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Input}" Width="110" HorizontalAlignment="Left"/>
+                                <TextBox Text="{Binding SplitPageNum, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Split after page" AutomationProperties.HelpText="{Binding PageCountInfo}" Style="{StaticResource Input}" Width="110" HorizontalAlignment="Left"/>
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
 
                                 <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource SectionLabel}"/>
@@ -287,11 +287,11 @@
                                     <RadioButton Content="All pages" IsChecked="{Binding RotateAllPages}" Style="{StaticResource OptionRadio}" GroupName="RotatePages" Margin="0,0,4,8"/>
                                     <RadioButton Content="Specific pages" Style="{StaticResource OptionRadio}" GroupName="RotatePages" Margin="4,0,0,8"/>
                                 </UniformGrid>
-                                <TextBox Text="{Binding RotatePageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecVisible}" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
+                                <TextBox Text="{Binding RotatePageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecVisible}" AutomationProperties.Name="Pages to rotate" AutomationProperties.HelpText="{Binding PageCountInfo}" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
 
                                 <TextBlock Text="ROTATION" Style="{StaticResource SectionLabel}"/>
-                                <ComboBox SelectedValue="{Binding RotationAngle}" SelectedValuePath="Content" HorizontalAlignment="Stretch">
+                                <ComboBox SelectedValue="{Binding RotationAngle}" SelectedValuePath="Content" HorizontalAlignment="Stretch" AutomationProperties.Name="Rotation" AutomationProperties.HelpText="Degrees clockwise">
                                     <ComboBoxItem Content="90"/>
                                     <ComboBoxItem Content="180"/>
                                     <ComboBoxItem Content="270"/>
