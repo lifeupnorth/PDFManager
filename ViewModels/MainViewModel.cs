@@ -1,3 +1,4 @@
+using System;
 using PDFManager.Base;
 using PDFManager.Services;
 
@@ -27,7 +28,7 @@ namespace PDFManager.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public MainViewModel(IPdfService pdfService, IPageRenderer pageRenderer)
+        public MainViewModel(IPdfService pdfService, IPageRenderer pageRenderer, Action<AppTheme> applyTheme)
         {
             Split = new SplitViewModel(pdfService, pageRenderer);
             Merge = new MergeViewModel(pdfService);
@@ -40,7 +41,7 @@ namespace PDFManager.ViewModels
             Batch = new BatchViewModel(pdfService);
             PdfToImage = new PdfToImageViewModel(pdfService, pageRenderer);
             ImagesToPdf = new ImagesToPdfViewModel(pdfService);
-            HomeView = new HomeViewModel();
+            HomeView = new HomeViewModel(new AppearanceViewModel(applyTheme));
             _currentView = HomeView;
         }
     }

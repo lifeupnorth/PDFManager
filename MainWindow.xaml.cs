@@ -11,27 +11,16 @@ namespace PDFManager
         public MainWindow()
         {
             InitializeComponent();
-            this.DataContext = new MainViewModel(new PdfService(), new WindowsPageRenderer());
+            this.DataContext = new MainViewModel(new PdfService(), new WindowsPageRenderer(), ThemeManager.Apply);
         }
 
         private MainViewModel ViewModel => (MainViewModel)DataContext;
 
-        // Ask DWM for a dark title bar so the window chrome matches the dark theme.
-        // Silently ignored on Windows versions that do not support the attribute.
-        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
-        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
-
+        // The window chrome follows the theme: a dark title bar for the dark palette
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-            try
-            {
-                const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
-                int enabled = 1;
-                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref enabled, sizeof(int));
-            }
-            catch { }
+            ThemeManager.SetTitleBar(this, ThemeManager.IsDark);
         }
 
         // Home tool cards carry the same view index as the sidebar items. The sidebar is the

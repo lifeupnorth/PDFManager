@@ -2,14 +2,27 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace PDFManager.Services
 {
+    public enum AppTheme { System, Light, Dark }
+
     /// <summary>What the app remembers between sessions.</summary>
     public class SettingsData
     {
         // Sidebar sections the user has collapsed, by name
         public List<string> CollapsedSections { get; set; } = new List<string>();
+
+        // "System", "Light" or "Dark". Dark until the user chooses, which is how the app always looked
+        public string Theme { get; set; } = nameof(AppTheme.Dark);
+
+        [JsonIgnore]
+        public AppTheme ThemeChoice
+        {
+            get => Enum.TryParse(Theme, ignoreCase: true, out AppTheme theme) && Enum.IsDefined(theme) ? theme : AppTheme.Dark;
+            set => Theme = value.ToString();
+        }
     }
 
     /// <summary>

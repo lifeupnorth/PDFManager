@@ -14,6 +14,9 @@ namespace PDFManager
         {
             base.OnStartup(e);
 
+            // Before StartupUri creates the window, so it never shows in the wrong colours
+            ThemeManager.Apply(AppSettings.Load().ThemeChoice);
+
             // UI-thread exceptions, including ones rethrown from async void commands:
             // log them and keep the app running
             DispatcherUnhandledException += (sender, args) =>

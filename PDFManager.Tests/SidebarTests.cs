@@ -6,8 +6,9 @@ using PDFManager.ViewModels;
 
 namespace PDFManager.Tests
 {
-    // AppSettings.Folder is static, so every test that changes it lives in this one class:
-    // xUnit runs the tests within a class one at a time
+    // AppSettings.Folder is static, so the classes that change it share a collection: xUnit runs
+    // collections one at a time
+    [Collection("Settings file")]
     public class SidebarTests : IDisposable
     {
         private readonly string _originalFolder = AppSettings.Folder;
