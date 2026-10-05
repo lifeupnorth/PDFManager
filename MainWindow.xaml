@@ -19,6 +19,7 @@
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <local:RadioValueConverter x:Key="RadioValue"/>
+        <local:EqualsToVisibilityConverter x:Key="EqualsToVisibility"/>
 
         <!-- Path label: single line, trimmed with an ellipsis -->
         <Style x:Key="PathLabel" TargetType="Label" BasedOn="{StaticResource ValueLabel}">
@@ -65,6 +66,37 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </StackPanel>
+        </DataTemplate>
+
+        <!-- Row template for a file in the batch list: name, folder and the outcome of the last run -->
+        <DataTemplate x:Key="BatchFileTemplate">
+            <DockPanel>
+                <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{StaticResource BatchTileBrush}" Width="38" Height="38" Margin="0,0,14,0">
+                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{StaticResource BatchIconBrush}" Width="18" Height="18" Stretch="Uniform" StrokeThickness="2"/>
+                </Border>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding StatusText}" MaxWidth="280" TextWrapping="Wrap" TextAlignment="Right" VerticalAlignment="Center" Margin="14,0,0,0" FontSize="12">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Status}" Value="Done">
+                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="Failed">
+                                    <Setter Property="Foreground" Value="{StaticResource AccentHoverBrush}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="Working">
+                                    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource FileName}" Text="{Binding FileName}"/>
+                    <TextBlock Style="{StaticResource FilePath}" Text="{Binding Folder}"/>
+                </StackPanel>
+            </DockPanel>
         </DataTemplate>
 
         <!-- DataTemplates for ViewModels -->
@@ -145,6 +177,18 @@
                                     <Path Style="{StaticResource Icon}" Data="{StaticResource IconLock}" Stroke="{StaticResource SecurityIconBrush}"/>
                                 </Border>
                                 <TextBlock Text="Protect PDF" Style="{StaticResource CardLabel}"/>
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
+
+                    <TextBlock Text="Many files at once" Style="{StaticResource CategoryHeading}" Margin="0,34,0,12"/>
+                    <WrapPanel>
+                        <Button Style="{StaticResource ToolCard}" Tag="9" Click="OpenTool_Click" AutomationProperties.Name="Batch processing">
+                            <StackPanel>
+                                <Border Style="{StaticResource IconTile}" Background="{StaticResource BatchTileBrush}">
+                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconBatch}" Stroke="{StaticResource BatchIconBrush}"/>
+                                </Border>
+                                <TextBlock Text="Batch processing" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                     </WrapPanel>
@@ -796,6 +840,148 @@
                 </Border>
             </Grid>
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:BatchViewModel}">
+            <Grid Background="{StaticResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="batchTab_Drop">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="320"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Margin="28">
+                    <Grid Visibility="{Binding HasItems, ElementName=lstBatchFiles, Converter={StaticResource InverseBoolToVisibility}}">
+                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{StaticResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="480">
+                            <TextBlock Text="Batch processing" Style="{StaticResource PageTitle}"/>
+                            <TextBlock Text="Rotate, watermark, extract pages from, or add or remove a password on many PDFs at once." Style="{StaticResource PageSubtitle}"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button Command="{Binding AddFilesCommand}" Content="Select PDF files" Style="{StaticResource PrimaryButtonLarge}"/>
+                                <Button Command="{Binding AddFolderCommand}" Content="Select a folder" Style="{StaticResource SecondaryButton}" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="or drop PDFs or folders here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <DockPanel Visibility="{Binding HasItems, ElementName=lstBatchFiles, Converter={StaticResource BoolToVisibility}}">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Content="Add files" Style="{StaticResource SecondaryButton}" Command="{Binding AddFilesCommand}"/>
+                                <Button Content="Add folder" Style="{StaticResource SecondaryButton}" Command="{Binding AddFolderCommand}" Margin="8,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Text="FILES" Style="{StaticResource SectionLabel}" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <DockPanel DockPanel.Dock="Bottom" Margin="0,4,0,0">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Content="Remove selected" Style="{StaticResource SecondaryButton}" Command="{Binding RemoveFilesCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstBatchFiles}"/>
+                                <Button Content="Clear list" Style="{StaticResource SecondaryButton}" Command="{Binding ClearFilesCommand}" Margin="8,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Text="Files are processed top to bottom. Drop more PDFs or folders to add them." Style="{StaticResource Hint}" TextAlignment="Left" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        </DockPanel>
+                        <ListBox x:Name="lstBatchFiles" ItemsSource="{Binding Files}" SelectionMode="Extended" Style="{StaticResource FileList}" ItemTemplate="{StaticResource BatchFileTemplate}" AutomationProperties.Name="Files to process"/>
+                    </DockPanel>
+                </Grid>
+
+                <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                            <StackPanel>
+                                <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,14">
+                                    <TextBlock Text="{Binding ProgressText}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                    <ProgressBar Value="{Binding Progress}" Style="{StaticResource Progress}" Margin="0,8,0,0" AutomationProperties.Name="Batch progress"/>
+                                </StackPanel>
+                                <Button Command="{Binding RunBatchCommand}">
+                                    <Button.Style>
+                                        <!-- Content lives in the style so the busy trigger can replace it -->
+                                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                            <Setter Property="Content" Value="Process files"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                    <Setter Property="Content" Value="Processing..."/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="Cancel" Command="{Binding CancelCommand}" Style="{StaticResource SecondaryButton}" Margin="0,8,0,0"
+                                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" ToolTip="Stops after the file being processed now"/>
+                            </StackPanel>
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="24,24,24,16">
+                                <TextBlock Text="Batch processing" Style="{StaticResource SidebarTitle}"/>
+
+                                <TextBlock Text="ACTION" Style="{StaticResource SectionLabel}"/>
+                                <UniformGrid Columns="2">
+                                    <RadioButton Content="Rotate" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Rotate}" Style="{StaticResource OptionRadio}" GroupName="BatchAction" Margin="0,0,4,8"/>
+                                    <RadioButton Content="Watermark" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Watermark}" Style="{StaticResource OptionRadio}" GroupName="BatchAction" Margin="4,0,0,8"/>
+                                    <RadioButton Content="Extract pages" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Extract}" Style="{StaticResource OptionRadio}" GroupName="BatchAction" Margin="0,0,4,8"/>
+                                    <RadioButton Content="Protect" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Protect}" Style="{StaticResource OptionRadio}" GroupName="BatchAction" Margin="4,0,0,8"/>
+                                    <RadioButton Content="Unlock" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Unlock}" Style="{StaticResource OptionRadio}" GroupName="BatchAction" Margin="0,0,4,8"/>
+                                </UniformGrid>
+
+                                <!-- Rotate -->
+                                <StackPanel Visibility="{Binding Action, Converter={StaticResource EqualsToVisibility}, ConverterParameter=Rotate}">
+                                    <TextBlock Text="ROTATION" Style="{StaticResource SectionLabel}"/>
+                                    <RadioButton Content="90° clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=90}" Style="{StaticResource OptionRadio}" GroupName="BatchAngle"/>
+                                    <RadioButton Content="180°" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=180}" Style="{StaticResource OptionRadio}" GroupName="BatchAngle"/>
+                                    <RadioButton Content="90° counter-clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=270}" Style="{StaticResource OptionRadio}" GroupName="BatchAngle"/>
+                                    <Label Style="{StaticResource HintLabel}" Content="Every page of every file is rotated."/>
+                                </StackPanel>
+
+                                <!-- Watermark -->
+                                <StackPanel Visibility="{Binding Action, Converter={StaticResource EqualsToVisibility}, ConverterParameter=Watermark}">
+                                    <TextBlock Text="TEXT" Style="{StaticResource SectionLabel}"/>
+                                    <TextBox Text="{Binding WatermarkText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Watermark text" Style="{StaticResource Input}"/>
+                                    <TextBlock Text="DIRECTION" Style="{StaticResource SectionLabel}"/>
+                                    <UniformGrid Columns="2">
+                                        <RadioButton Content="Diagonal" IsChecked="{Binding WatermarkDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="BatchDirection" Margin="0,0,4,0"/>
+                                        <RadioButton Content="Horizontal" IsChecked="{Binding WatermarkDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="BatchDirection" Margin="4,0,0,0"/>
+                                    </UniformGrid>
+                                    <TextBlock Text="OPACITY" Style="{StaticResource SectionLabel}"/>
+                                    <UniformGrid Columns="3">
+                                        <RadioButton Content="Light" IsChecked="{Binding WatermarkOpacity, Converter={StaticResource RadioValue}, ConverterParameter=15}" Style="{StaticResource OptionRadio}" GroupName="BatchOpacity" Margin="0,0,4,0"/>
+                                        <RadioButton Content="Medium" IsChecked="{Binding WatermarkOpacity, Converter={StaticResource RadioValue}, ConverterParameter=30}" Style="{StaticResource OptionRadio}" GroupName="BatchOpacity" Margin="2,0,2,0"/>
+                                        <RadioButton Content="Strong" IsChecked="{Binding WatermarkOpacity, Converter={StaticResource RadioValue}, ConverterParameter=50}" Style="{StaticResource OptionRadio}" GroupName="BatchOpacity" Margin="4,0,0,0"/>
+                                    </UniformGrid>
+                                    <Label Style="{StaticResource HintLabel}" Content="The watermark goes on every page of every file."/>
+                                </StackPanel>
+
+                                <!-- Extract pages -->
+                                <StackPanel Visibility="{Binding Action, Converter={StaticResource EqualsToVisibility}, ConverterParameter=Extract}">
+                                    <TextBlock Text="PAGES TO EXTRACT" Style="{StaticResource SectionLabel}"/>
+                                    <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Pages to extract from every file" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
+                                    <Label Style="{StaticResource HintLabel}" Content="The same pages are taken from every file. For example, 1 keeps each file's first page."/>
+                                </StackPanel>
+
+                                <!-- Protect -->
+                                <StackPanel Visibility="{Binding Action, Converter={StaticResource EqualsToVisibility}, ConverterParameter=Protect}">
+                                    <TextBlock Text="PASSWORD" Style="{StaticResource SectionLabel}"/>
+                                    <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password for every file" Style="{StaticResource PasswordInput}"/>
+                                    <TextBlock Text="CONFIRM PASSWORD" Style="{StaticResource SectionLabel}"/>
+                                    <PasswordBox local:PasswordBinding.Password="{Binding ConfirmPassword}" AutomationProperties.Name="Confirm password" Style="{StaticResource PasswordInput}"/>
+                                    <Label Style="{StaticResource HintLabel}" Content="Every file gets the same password. It cannot be recovered if it is forgotten."/>
+                                </StackPanel>
+
+                                <!-- Unlock -->
+                                <StackPanel Visibility="{Binding Action, Converter={StaticResource EqualsToVisibility}, ConverterParameter=Unlock}">
+                                    <TextBlock Text="PASSWORD" Style="{StaticResource SectionLabel}"/>
+                                    <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password of the files" Style="{StaticResource PasswordInput}"/>
+                                    <Label Style="{StaticResource HintLabel}" Content="The same password is tried on every file. Files it does not open are listed as failed."/>
+                                </StackPanel>
+
+                                <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource SectionLabel}"/>
+                                <Label Content="{Binding OutputFolderText}" Style="{StaticResource ValueLabel}"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}"/>
+                                    <Button Command="{Binding UseOriginalFoldersCommand}" Content="Use original folders" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                                            Visibility="{Binding HasOutputFolder, Converter={StaticResource BoolToVisibility}}"/>
+                                </StackPanel>
+                                <Label Style="{StaticResource HintLabel}" Content="Each output is named after its file, ending in _rotated, _watermarked and so on. The originals are not changed."/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -815,68 +1001,79 @@
 
                 <TextBlock DockPanel.Dock="Bottom" Text="Files never leave this computer." Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="22,0,22,20" TextWrapping="Wrap"/>
 
-                <StackPanel DockPanel.Dock="Top">
-                    <RadioButton x:Name="navHome" AutomationProperties.Name="Tools" Style="{StaticResource NavItem}" GroupName="Nav" Tag="0" IsChecked="True" Checked="Nav_Checked">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconHome}"/>
-                            <TextBlock Text="Tools" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </RadioButton>
+                <!-- Scrolls when the window is too short for every tool, instead of running into the footer -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                    <StackPanel>
+                        <RadioButton x:Name="navHome" AutomationProperties.Name="Tools" Style="{StaticResource NavItem}" GroupName="Nav" Tag="0" IsChecked="True" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconHome}"/>
+                                <TextBlock Text="Tools" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
-                    <TextBlock Text="ORGANIZE" Style="{StaticResource SectionLabel}" Margin="22,22,0,6"/>
-                    <RadioButton x:Name="navMerge" AutomationProperties.Name="Merge PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="2" Checked="Nav_Checked">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconMerge}"/>
-                            <TextBlock Text="Merge PDF" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </RadioButton>
-                    <RadioButton x:Name="navSplit" AutomationProperties.Name="Split PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="1" Checked="Nav_Checked">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconSplit}"/>
-                            <TextBlock Text="Split PDF" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </RadioButton>
-                    <RadioButton x:Name="navExtract" AutomationProperties.Name="Extract pages" Style="{StaticResource NavItem}" GroupName="Nav" Tag="4" Checked="Nav_Checked">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconExtract}"/>
-                            <TextBlock Text="Extract pages" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </RadioButton>
+                        <TextBlock Text="ORGANIZE" Style="{StaticResource SectionLabel}" Margin="22,22,0,6"/>
+                        <RadioButton x:Name="navMerge" AutomationProperties.Name="Merge PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="2" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconMerge}"/>
+                                <TextBlock Text="Merge PDF" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="navSplit" AutomationProperties.Name="Split PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="1" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconSplit}"/>
+                                <TextBlock Text="Split PDF" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="navExtract" AutomationProperties.Name="Extract pages" Style="{StaticResource NavItem}" GroupName="Nav" Tag="4" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconExtract}"/>
+                                <TextBlock Text="Extract pages" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
-                    <TextBlock Text="EDIT" Style="{StaticResource SectionLabel}" Margin="22,18,0,6"/>
-                    <RadioButton x:Name="navRotate" AutomationProperties.Name="Rotate PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="3" Checked="Nav_Checked">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconRotate}"/>
-                            <TextBlock Text="Rotate PDF" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </RadioButton>
-                    <RadioButton x:Name="navMetadata" AutomationProperties.Name="Edit metadata" Style="{StaticResource NavItem}" GroupName="Nav" Tag="5" Checked="Nav_Checked">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconTag}"/>
-                            <TextBlock Text="Edit metadata" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </RadioButton>
-                    <RadioButton x:Name="navWatermark" AutomationProperties.Name="Add watermark" Style="{StaticResource NavItem}" GroupName="Nav" Tag="8" Checked="Nav_Checked">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconWatermark}"/>
-                            <TextBlock Text="Add watermark" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </RadioButton>
+                        <TextBlock Text="EDIT" Style="{StaticResource SectionLabel}" Margin="22,18,0,6"/>
+                        <RadioButton x:Name="navRotate" AutomationProperties.Name="Rotate PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="3" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconRotate}"/>
+                                <TextBlock Text="Rotate PDF" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="navMetadata" AutomationProperties.Name="Edit metadata" Style="{StaticResource NavItem}" GroupName="Nav" Tag="5" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconTag}"/>
+                                <TextBlock Text="Edit metadata" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="navWatermark" AutomationProperties.Name="Add watermark" Style="{StaticResource NavItem}" GroupName="Nav" Tag="8" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconWatermark}"/>
+                                <TextBlock Text="Add watermark" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
-                    <TextBlock Text="SECURITY" Style="{StaticResource SectionLabel}" Margin="22,18,0,6"/>
-                    <RadioButton x:Name="navUnlock" AutomationProperties.Name="Unlock PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="7" Checked="Nav_Checked">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconUnlock}"/>
-                            <TextBlock Text="Unlock PDF" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </RadioButton>
-                    <RadioButton x:Name="navProtect" AutomationProperties.Name="Protect PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="6" Checked="Nav_Checked">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconLock}"/>
-                            <TextBlock Text="Protect PDF" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </RadioButton>
-                </StackPanel>
+                        <TextBlock Text="SECURITY" Style="{StaticResource SectionLabel}" Margin="22,18,0,6"/>
+                        <RadioButton x:Name="navUnlock" AutomationProperties.Name="Unlock PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="7" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconUnlock}"/>
+                                <TextBlock Text="Unlock PDF" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="navProtect" AutomationProperties.Name="Protect PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="6" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconLock}"/>
+                                <TextBlock Text="Protect PDF" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
+
+                        <TextBlock Text="BATCH" Style="{StaticResource SectionLabel}" Margin="22,18,0,6"/>
+                        <RadioButton x:Name="navBatch" AutomationProperties.Name="Batch processing" Style="{StaticResource NavItem}" GroupName="Nav" Tag="9" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconBatch}"/>
+                                <TextBlock Text="Batch processing" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 

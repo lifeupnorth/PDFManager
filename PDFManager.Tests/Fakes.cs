@@ -12,12 +12,13 @@ namespace PDFManager.Tests
         public Func<string, int> PageCount { get; init; } = _ => 1;
         public Func<string, PdfMetadata> Metadata { get; init; } = _ => new PdfMetadata("", "", "", "");
         public Func<string, PdfProtection> Protection { get; init; } = _ => PdfProtection.None;
+        public Action<string, string>? Rotate { get; init; }
 
         public int GetPageCount(string path) => PageCount(path);
         public string GetSplitDestPattern(string sourcePath) => throw new NotSupportedException();
         public void SplitPdf(string sourcePath, int splitPage, string folderPath) => throw new NotSupportedException();
         public void MergePdfs(string outputPath, List<string> sourceFiles) => throw new NotSupportedException();
-        public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees) => throw new NotSupportedException();
+        public void RotatePdf(string sourcePath, string outputPath, string pageSpec, int degrees) => (Rotate ?? throw new NotSupportedException())(sourcePath, outputPath);
         public void ExtractPages(string sourcePath, string outputPath, string pageSpec) => throw new NotSupportedException();
         public PdfMetadata ReadMetadata(string path) => Metadata(path);
         public void WriteMetadata(string sourcePath, string outputPath, PdfMetadata metadata) => throw new NotSupportedException();

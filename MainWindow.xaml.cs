@@ -40,7 +40,7 @@ namespace PDFManager
         {
             if (sender is FrameworkElement fe && int.TryParse(fe.Tag?.ToString(), out int index))
             {
-                var navItems = new[] { navHome, navSplit, navMerge, navRotate, navExtract, navMetadata, navProtect, navUnlock, navWatermark };
+                var navItems = new[] { navHome, navSplit, navMerge, navRotate, navExtract, navMetadata, navProtect, navUnlock, navWatermark, navBatch };
                 if (index >= 0 && index < navItems.Length)
                     navItems[index].IsChecked = true;
             }
@@ -62,6 +62,7 @@ namespace PDFManager
                     6 => vm.Protect,
                     7 => vm.Unlock,
                     8 => vm.Watermark,
+                    9 => vm.Batch,
                     _ => vm.HomeView
                 };
             }
@@ -119,6 +120,14 @@ namespace PDFManager
         {
             if (TryGetSingleDroppedPdf(e, "watermark", out string file))
                 await ViewModel.Watermark.UpdateFileAsync(file);
+        }
+
+        // Batch takes any mix of PDFs and folders
+        private void batchTab_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0 && !ViewModel.Batch.IsBusy
+                && ViewModel.Batch.AddPaths(paths) == 0)
+                MessageBox.Show("No new PDF files were found in what you dropped.", "No Files Added", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private static bool TryGetSingleDroppedPdf(DragEventArgs e, string action, out string file)
