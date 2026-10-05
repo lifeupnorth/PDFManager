@@ -1,0 +1,176 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Input;
+using PDFManager.Base;
+using PDFManager.Services;
+using iText.Kernel.Pdf;
+
+namespace PDFManager.ViewModels
+{
+    public class RotateViewModel : ObservableObject
+    {
+        private readonly IPdfService _pdfService;
+
+        private string _sourcePath = string.Empty;
+        public string SourcePath
+        {
+            get => _sourcePath;
+            set { if (SetProperty(ref _sourcePath, value)) OnPropertyChanged(nameof(SourcePath)); }
+        }
+
+        private string _outputPath = string.Empty;
+        public string OutputPath
+        {
+            get => _outputPath;
+            set => SetProperty(ref _outputPath, value);
+        }
+
+        private bool _rotateAllPages = true;
+        public bool RotateAllPages
+        {
+            get => _rotateAllPages;
+            set
+            {
+                if (SetProperty(ref _rotateAllPages, value))
+                {
+                    OnPropertyChanged(nameof(IsPageSpecVisible));
+                }
+            }
+        }
+
+        private bool _isPageSpecVisible;
+        public bool IsPageSpecVisible => !RotateAllPages;
+
+        private string _rotatePageSpec = string.Empty;
+        public string RotatePageSpec
+        {
+            get => _rotatePageSpec;
+            set => SetProperty(ref _rotatePageSpec, value);
+        }
+
+        private int _rotationAngle = 90;
+        public int RotationAngle
+        {
+            get => _rotationAngle;
+            set => SetProperty(ref _rotationAngle, value);
+        }
+
+        private string _pageCountInfo = string.Empty;
+        public string PageCountInfo
+        {
+            get => _pageCountInfo;
+            set => SetProperty(ref _pageCountInfo, value);
+        }
+
+        private bool _isBusy;
+        public bool IsBusy
+        {
+            get => _isBusy;
+            set => SetProperty(ref _isBusy, value);
+        }
+
+        public ICommand OpenFileCommand { get; }
+        public ICommand BrowseOutputCommand { get; }
+        public ICommand RunRotateCommand { get; }
+
+        public RotateViewModel(IPdfService pdfService)
+        {
+            _pdfService = pdfService;
+            OpenFileCommand = new RelayCommand(ExecuteOpenFile);
+            BrowseOutputCommand = new RelayCommand(ExecuteBrowseOutput);
+            RunRotateCommand = new RelayCommand(ExecuteRunRotate, CanExecuteRunRotate);
+        }
+
+        private void ExecuteOpenFile(object? parameter)
+        {
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "PDF Files (*.pdf)|*.pdf"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+                UpdateFile(openFileDialog.FileName);
+        }
+
+        private void ExecuteBrowseOutput(object? parameter)
+        {
+            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "PDF Files (*.pdf)|*.pdf",
+                FileName = "Rotated File.pdf",
+                DefaultExt = ".pdf"
+            };
+            if (string.IsNullOrWhiteSpace(OutputPath))
+                saveFileDialog.FileName = Path.GetFileNameWithoutExtension(SourcePath) + "_rotated.pdf";
+            else
+                saveFileDialog.FileName = Path.GetFileName(OutputPath);
+
+            if (saveFileDialog.ShowDialog() == true)
+                OutputPath = saveFileDialog.FileName;
+        }
+
+        private bool CanExecuteRunRotate(object? parameter)
+        {
+            if (IsBusy || string.IsNullOrWhiteSpace(SourcePath) || string.IsNullOrWhiteSpace(OutputPath) || SourcePath == OutputPath)
+                return false;
+
+            if (!string.IsNullOrWhiteSpace(RotatePageSpec) && string.IsNullOrWhiteSpace(RotatePageSpec))
+                return false;
+
+            return true;
+        }
+
+        private async void ExecuteRunRotate(object? parameter)
+        {
+            try
+            {
+                IsBusy = true;
+                int totalPages;
+                using (var probe = new iText.Kernel.Pdf.PdfDocument(new iText.Kernel.Pdf.PdfReader(SourcePath)))
+                    totalPages = probe.GetNumberOfPages();
+
+                string pageSpec = RotateAllPages ? null : RotatePageSpec;
+
+                await Task.Run(() => _pdfService.RotatePdf(SourcePath, OutputPath, pageSpec, RotationAngle, totalPages));
+
+                var openFolder = MessageBox.Show("PDF rotated successfully!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (openFolder == MessageBoxResult.Yes)
+                    ShowInExplorer(OutputPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error rotating PDF: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        public void UpdateFile(string path)
+        {
+            SourcePath = path;
+            OutputPath = Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path) + "_rotated.pdf");
+
+            try
+            {
+                using (var pdfDoc = new iText.Kernel.Pdf.PdfDocument(new iText.Kernel.Pdf.PdfReader(path)))
+                {
+                    int pages = pdfDoc.GetNumberOfPages();
+                    PageCountInfo = $"Document has {pages} page{(pages == 1 ? "" : "s")}. Example: 1, 3, 5-7";
+                }
+            }
+            catch
+            {
+                PageCountInfo = "Unable to read the page count.";
+            }
+        }
+
+        private void ShowInExplorer(string filePath)
+        {
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
+        }
+    }
+}
