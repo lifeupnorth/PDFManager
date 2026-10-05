@@ -16,7 +16,7 @@ namespace PDFManager.Tests
         public void Dispose() => _pdfs.Dispose();
 
         private static PdfToImageViewModel NewViewModel(IPageRenderer? renderer = null) =>
-            new PdfToImageViewModel(new PdfService(), renderer ?? new WindowsPageRenderer());
+            new PdfToImageViewModel(new PdfService(), renderer ?? new WindowsPageRenderer(), new FakeDialogService());
 
         [Fact]
         public async Task Picking_a_file_suggests_an_images_folder_next_to_it()

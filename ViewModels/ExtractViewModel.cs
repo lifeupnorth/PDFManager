@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using PDFManager.Base;
 using PDFManager.Services;
@@ -11,6 +10,7 @@ namespace PDFManager.ViewModels
     public class ExtractViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
+        private readonly IDialogService _dialogs;
         private readonly PageListSelection _pageSelection;
 
         private string _sourcePath = string.Empty;
@@ -54,9 +54,10 @@ namespace PDFManager.ViewModels
         public ICommand BrowseOutputCommand { get; }
         public ICommand RunExtractCommand { get; }
 
-        public ExtractViewModel(IPdfService pdfService, IPageRenderer pageRenderer)
+        public ExtractViewModel(IPdfService pdfService, IPageRenderer pageRenderer, IDialogService dialogs)
         {
             _pdfService = pdfService;
+            _dialogs = dialogs;
             Thumbnails = new PageThumbnailsViewModel(pageRenderer);
             _pageSelection = new PageListSelection(Thumbnails, () => PageSpec, list => PageSpec = list);
             OpenFileCommand = new RelayCommand(ExecuteOpenFile);
@@ -66,28 +67,18 @@ namespace PDFManager.ViewModels
 
         private async void ExecuteOpenFile(object? parameter)
         {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf"
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-                await UpdateFileAsync(openFileDialog.FileName);
+            string? path = _dialogs.PickFile("PDF Files (*.pdf)|*.pdf");
+            if (path != null)
+                await UpdateFileAsync(path);
         }
 
         private void ExecuteBrowseOutput(object? parameter)
         {
-            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf",
-                DefaultExt = ".pdf",
-                FileName = string.IsNullOrWhiteSpace(OutputPath)
-                    ? Path.GetFileNameWithoutExtension(SourcePath) + "_extracted.pdf"
-                    : Path.GetFileName(OutputPath)
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-                OutputPath = saveFileDialog.FileName;
+            string? path = _dialogs.PickSaveFile("PDF Files (*.pdf)|*.pdf", ".pdf", string.IsNullOrWhiteSpace(OutputPath)
+                ? Path.GetFileNameWithoutExtension(SourcePath) + "_extracted.pdf"
+                : Path.GetFileName(OutputPath));
+            if (path != null)
+                OutputPath = path;
         }
 
         private bool CanExecuteRunExtract(object? parameter)
@@ -95,28 +86,30 @@ namespace PDFManager.ViewModels
             return !IsBusy && !string.IsNullOrWhiteSpace(SourcePath) && !string.IsNullOrWhiteSpace(OutputPath);
         }
 
-        private async void ExecuteRunExtract(object? parameter)
+        private async void ExecuteRunExtract(object? parameter) => await ExtractAsync();
+
+        // The Extract button's work, including its messages and confirmations
+        public async Task ExtractAsync()
         {
             // PdfWriter truncates the output as soon as it is created, so writing
             // over the source would destroy it before it is read
             if (string.Equals(Path.GetFullPath(SourcePath), Path.GetFullPath(OutputPath), StringComparison.OrdinalIgnoreCase))
             {
-                MessageBox.Show("The output file cannot be the same as the source file. Please choose a different output path.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show("The output file cannot be the same as the source file. Please choose a different output path.", "Validation Error", DialogIcon.Warning);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(PageSpec))
             {
-                MessageBox.Show("Please enter the pages to extract (for example: 1, 3, 5-7).", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show("Please enter the pages to extract (for example: 1, 3, 5-7).", "Validation Error", DialogIcon.Warning);
                 return;
             }
 
             if (File.Exists(OutputPath))
             {
-                var result = MessageBox.Show(
-                    $"\"{OutputPath}\" already exists and will be overwritten.\n\nContinue?",
-                    "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
+                if (!_dialogs.Confirm(
+                        $"\"{OutputPath}\" already exists and will be overwritten.\n\nContinue?",
+                        "Confirm Overwrite", DialogIcon.Warning))
                     return;
             }
 
@@ -127,24 +120,23 @@ namespace PDFManager.ViewModels
                 IsBusy = true;
                 await Task.Run(() => _pdfService.ExtractPages(sourcePath, outputPath, pageSpec));
 
-                var openFolder = MessageBox.Show("Pages extracted successfully!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (openFolder == MessageBoxResult.Yes)
-                    ShowInExplorer(outputPath);
+                if (_dialogs.Confirm("Pages extracted successfully!\n\nOpen the output folder?", "Success", DialogIcon.Information))
+                    _dialogs.ShowInExplorer(outputPath);
             }
             catch (iText.Kernel.Exceptions.BadPasswordException)
             {
-                MessageBox.Show("This PDF is password-protected and pages cannot be extracted from it.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show("This PDF is password-protected and pages cannot be extracted from it.", "Error", DialogIcon.Error);
             }
             catch (iText.IO.Exceptions.IOException)
             {
-                MessageBox.Show("This file is not a valid PDF or is corrupted.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show("This file is not a valid PDF or is corrupted.", "Error", DialogIcon.Error);
             }
             catch (Exception ex)
             {
                 // InvalidOperationException carries the service's own validation messages
                 if (ex is not InvalidOperationException)
                     ErrorLog.Write(ex, "Extract");
-                MessageBox.Show($"Error extracting pages: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show($"Error extracting pages: {ex.Message}", "Error", DialogIcon.Error);
             }
             finally
             {
@@ -179,11 +171,6 @@ namespace PDFManager.ViewModels
             // Another file may have been picked while this one was being read
             if (SourcePath == path)
                 PageCountInfo = info;
-        }
-
-        private void ShowInExplorer(string filePath)
-        {
-            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
         }
     }
 }

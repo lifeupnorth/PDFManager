@@ -78,7 +78,7 @@ namespace PDFManager.Tests
         [InlineData(4, "Document has 4 pages. Example: 1, 3, 5-7")]
         public async Task Rotate_hint_gives_the_page_count_and_an_example(int pages, string hint)
         {
-            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer());
+            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer(), new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Scan.pdf"));
 
@@ -88,7 +88,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Rotate_suggests_an_output_next_to_the_source()
         {
-            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => 1 }, new FakePageRenderer());
+            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => 1 }, new FakePageRenderer(), new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Scan.pdf"));
 
@@ -98,7 +98,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Rotate_hint_flags_a_password_protected_file()
         {
-            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer());
+            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer(), new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
 
@@ -110,7 +110,7 @@ namespace PDFManager.Tests
         [InlineData(12, "Document has 12 pages. Example: 1, 3, 5-7")]
         public async Task Extract_hint_gives_the_page_count_and_an_example(int pages, string hint)
         {
-            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer());
+            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer(), new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Book.pdf"));
 
@@ -121,7 +121,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Extract_hint_flags_a_password_protected_file()
         {
-            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer());
+            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer(), new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
 
@@ -141,7 +141,7 @@ namespace PDFManager.Tests
                         firstMayFinish.Wait();
                     return path == first ? 9 : 3;
                 }
-            }, new FakePageRenderer());
+            }, new FakePageRenderer(), new FakeDialogService());
 
             Task slow = vm.UpdateFileAsync(first);
             await vm.UpdateFileAsync(second);
@@ -155,7 +155,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Metadata_loads_the_properties_and_suggests_an_output_next_to_the_source()
         {
-            var vm = new MetadataViewModel(new FakePdfService { Metadata = _ => new PdfMetadata("T", "A", "S", "K") });
+            var vm = new MetadataViewModel(new FakePdfService { Metadata = _ => new PdfMetadata("T", "A", "S", "K") }, new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Paper.pdf"));
 
@@ -179,7 +179,7 @@ namespace PDFManager.Tests
                         mayFinish.Wait();
                     return new PdfMetadata(Path.GetFileNameWithoutExtension(path), "", "", "");
                 }
-            });
+            }, new FakeDialogService());
             await vm.UpdateFileAsync(first);
 
             Task loading = vm.UpdateFileAsync(second);
@@ -209,7 +209,7 @@ namespace PDFManager.Tests
                         firstMayFinish.Wait();
                     return new PdfMetadata(Path.GetFileNameWithoutExtension(path), "", "", "");
                 }
-            });
+            }, new FakeDialogService());
 
             Task slow = vm.UpdateFileAsync(first);
             await vm.UpdateFileAsync(second);
@@ -230,7 +230,7 @@ namespace PDFManager.Tests
                 Metadata = _ => passwordProtected
                     ? throw new iText.Kernel.Exceptions.BadPasswordException("locked")
                     : throw new IOException("unreadable")
-            });
+            }, new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
 
@@ -245,7 +245,7 @@ namespace PDFManager.Tests
         [InlineData(PdfProtection.PermissionsOnly, "This PDF is already protected. Remove its password with Unlock PDF first.")]
         public async Task Protect_hint_depends_on_whether_the_file_is_protected(PdfProtection protection, string hint)
         {
-            var vm = new ProtectViewModel(new FakePdfService { Protection = _ => protection });
+            var vm = new ProtectViewModel(new FakePdfService { Protection = _ => protection }, new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Contract.pdf"));
 
@@ -256,7 +256,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Protect_hint_reports_an_unreadable_file()
         {
-            var vm = new ProtectViewModel(new FakePdfService { Protection = _ => throw new IOException("gone") });
+            var vm = new ProtectViewModel(new FakePdfService { Protection = _ => throw new IOException("gone") }, new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Broken.pdf"));
 
@@ -269,7 +269,7 @@ namespace PDFManager.Tests
         [InlineData(PdfProtection.None, "This PDF is not password-protected.")]
         public async Task Unlock_hint_says_which_password_is_needed(PdfProtection protection, string hint)
         {
-            var vm = new UnlockViewModel(new FakePdfService { Protection = _ => protection });
+            var vm = new UnlockViewModel(new FakePdfService { Protection = _ => protection }, new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Contract.pdf"));
 
@@ -280,7 +280,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Unlock_clears_the_password_when_another_file_is_picked()
         {
-            var vm = new UnlockViewModel(new FakePdfService { Protection = _ => PdfProtection.PasswordToOpen });
+            var vm = new UnlockViewModel(new FakePdfService { Protection = _ => PdfProtection.PasswordToOpen }, new FakeDialogService());
             await vm.UpdateFileAsync(Path.Combine(Folder, "First.pdf"));
             vm.Password = "for the first file";
 
@@ -302,7 +302,7 @@ namespace PDFManager.Tests
                         firstMayFinish.Wait();
                     return path == first ? PdfProtection.None : PdfProtection.PasswordToOpen;
                 }
-            });
+            }, new FakeDialogService());
 
             Task slow = vm.UpdateFileAsync(first);
             await vm.UpdateFileAsync(second);
@@ -317,7 +317,7 @@ namespace PDFManager.Tests
         [InlineData(3, "Document has 3 pages. Example: 1, 3, 5-7")]
         public async Task Watermark_hint_gives_the_page_count_and_an_example(int pages, string hint)
         {
-            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer());
+            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer(), new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Report.pdf"));
 
@@ -328,7 +328,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Watermark_hint_flags_a_password_protected_file()
         {
-            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer());
+            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => throw new iText.Kernel.Exceptions.BadPasswordException("locked") }, new FakePageRenderer(), new FakeDialogService());
 
             await vm.UpdateFileAsync(Path.Combine(Folder, "Locked.pdf"));
 
@@ -338,7 +338,7 @@ namespace PDFManager.Tests
         [Fact]
         public void Watermark_defaults_to_a_medium_diagonal_CONFIDENTIAL_on_all_pages()
         {
-            var vm = new WatermarkViewModel(new FakePdfService(), new FakePageRenderer());
+            var vm = new WatermarkViewModel(new FakePdfService(), new FakePageRenderer(), new FakeDialogService());
 
             Assert.Equal(("CONFIDENTIAL", true, 30, true), (vm.WatermarkText, vm.IsDiagonal, vm.OpacityPercent, vm.AllPages));
             Assert.False(vm.IsPageSpecEnabled);
@@ -347,7 +347,7 @@ namespace PDFManager.Tests
         [Fact]
         public void Watermark_preview_follows_the_direction_and_opacity()
         {
-            var vm = new WatermarkViewModel(new FakePdfService(), new FakePageRenderer());
+            var vm = new WatermarkViewModel(new FakePdfService(), new FakePageRenderer(), new FakeDialogService());
             var changed = new List<string?>();
             vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
@@ -369,7 +369,7 @@ namespace PDFManager.Tests
         [Fact]
         public void Watermark_page_box_is_enabled_only_for_specific_pages()
         {
-            var vm = new WatermarkViewModel(new FakePdfService(), new FakePageRenderer());
+            var vm = new WatermarkViewModel(new FakePdfService(), new FakePageRenderer(), new FakeDialogService());
             var changed = new List<string?>();
             vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 

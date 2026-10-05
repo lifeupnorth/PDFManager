@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using PDFManager.Base;
 using PDFManager.Services;
@@ -11,6 +10,7 @@ namespace PDFManager.ViewModels
     public class UnlockViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
+        private readonly IDialogService _dialogs;
 
         private string _sourcePath = string.Empty;
         public string SourcePath
@@ -51,9 +51,10 @@ namespace PDFManager.ViewModels
         public ICommand BrowseOutputCommand { get; }
         public ICommand RunUnlockCommand { get; }
 
-        public UnlockViewModel(IPdfService pdfService)
+        public UnlockViewModel(IPdfService pdfService, IDialogService dialogs)
         {
             _pdfService = pdfService;
+            _dialogs = dialogs;
             OpenFileCommand = new RelayCommand(ExecuteOpenFile);
             BrowseOutputCommand = new RelayCommand(ExecuteBrowseOutput);
             RunUnlockCommand = new RelayCommand(ExecuteRunUnlock, CanExecuteRunUnlock);
@@ -61,28 +62,18 @@ namespace PDFManager.ViewModels
 
         private async void ExecuteOpenFile(object? parameter)
         {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf"
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-                await UpdateFileAsync(openFileDialog.FileName);
+            string? path = _dialogs.PickFile("PDF Files (*.pdf)|*.pdf");
+            if (path != null)
+                await UpdateFileAsync(path);
         }
 
         private void ExecuteBrowseOutput(object? parameter)
         {
-            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf",
-                DefaultExt = ".pdf",
-                FileName = string.IsNullOrWhiteSpace(OutputPath)
-                    ? Path.GetFileNameWithoutExtension(SourcePath) + "_unlocked.pdf"
-                    : Path.GetFileName(OutputPath)
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-                OutputPath = saveFileDialog.FileName;
+            string? path = _dialogs.PickSaveFile("PDF Files (*.pdf)|*.pdf", ".pdf", string.IsNullOrWhiteSpace(OutputPath)
+                ? Path.GetFileNameWithoutExtension(SourcePath) + "_unlocked.pdf"
+                : Path.GetFileName(OutputPath));
+            if (path != null)
+                OutputPath = path;
         }
 
         private bool CanExecuteRunUnlock(object? parameter)
@@ -90,26 +81,28 @@ namespace PDFManager.ViewModels
             return !IsBusy && !string.IsNullOrWhiteSpace(SourcePath) && !string.IsNullOrWhiteSpace(OutputPath);
         }
 
-        private async void ExecuteRunUnlock(object? parameter)
+        private async void ExecuteRunUnlock(object? parameter) => await UnlockAsync();
+
+        // The Unlock button's work, including its messages and confirmations
+        public async Task UnlockAsync()
         {
             if (string.Equals(Path.GetFullPath(SourcePath), Path.GetFullPath(OutputPath), StringComparison.OrdinalIgnoreCase))
             {
-                MessageBox.Show("The output file cannot be the same as the source file. Please choose a different output path.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show("The output file cannot be the same as the source file. Please choose a different output path.", "Validation Error", DialogIcon.Warning);
                 return;
             }
 
             if (string.IsNullOrEmpty(Password))
             {
-                MessageBox.Show("Please enter the PDF's password.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show("Please enter the PDF's password.", "Validation Error", DialogIcon.Warning);
                 return;
             }
 
             if (File.Exists(OutputPath))
             {
-                var result = MessageBox.Show(
-                    $"\"{OutputPath}\" already exists and will be overwritten.\n\nContinue?",
-                    "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
+                if (!_dialogs.Confirm(
+                        $"\"{OutputPath}\" already exists and will be overwritten.\n\nContinue?",
+                        "Confirm Overwrite", DialogIcon.Warning))
                     return;
             }
 
@@ -121,23 +114,22 @@ namespace PDFManager.ViewModels
                 await Task.Run(() => _pdfService.UnlockPdf(sourcePath, outputPath, password));
 
                 Password = string.Empty;
-                var openFolder = MessageBox.Show("Password removed successfully!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (openFolder == MessageBoxResult.Yes)
-                    ShowInExplorer(outputPath);
+                if (_dialogs.Confirm("Password removed successfully!\n\nOpen the output folder?", "Success", DialogIcon.Information))
+                    _dialogs.ShowInExplorer(outputPath);
             }
             catch (InvalidOperationException ex)
             {
                 // The service's own explanations: a wrong password, or a file with no password
-                MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show(ex.Message, "Error", DialogIcon.Error);
             }
             catch (iText.IO.Exceptions.IOException)
             {
-                MessageBox.Show("This file is not a valid PDF or is corrupted.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show("This file is not a valid PDF or is corrupted.", "Error", DialogIcon.Error);
             }
             catch (Exception ex)
             {
                 ErrorLog.Write(ex, "Unlock");
-                MessageBox.Show($"Error removing password: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show($"Error removing password: {ex.Message}", "Error", DialogIcon.Error);
             }
             finally
             {
@@ -172,11 +164,6 @@ namespace PDFManager.ViewModels
             // Another file may have been picked while this one was being read
             if (SourcePath == path)
                 StatusInfo = info;
-        }
-
-        private void ShowInExplorer(string filePath)
-        {
-            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
         }
     }
 }

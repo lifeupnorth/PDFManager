@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using PDFManager.Base;
 using PDFManager.Services;
@@ -11,6 +10,7 @@ namespace PDFManager.ViewModels
     public class MetadataViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
+        private readonly IDialogService _dialogs;
 
         private string _sourcePath = string.Empty;
         public string SourcePath
@@ -81,9 +81,10 @@ namespace PDFManager.ViewModels
         public ICommand BrowseOutputCommand { get; }
         public ICommand RunSaveCommand { get; }
 
-        public MetadataViewModel(IPdfService pdfService)
+        public MetadataViewModel(IPdfService pdfService, IDialogService dialogs)
         {
             _pdfService = pdfService;
+            _dialogs = dialogs;
             OpenFileCommand = new RelayCommand(ExecuteOpenFile);
             BrowseOutputCommand = new RelayCommand(ExecuteBrowseOutput);
             RunSaveCommand = new RelayCommand(ExecuteRunSave, CanExecuteRunSave);
@@ -91,28 +92,18 @@ namespace PDFManager.ViewModels
 
         private async void ExecuteOpenFile(object? parameter)
         {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf"
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-                await UpdateFileAsync(openFileDialog.FileName);
+            string? path = _dialogs.PickFile("PDF Files (*.pdf)|*.pdf");
+            if (path != null)
+                await UpdateFileAsync(path);
         }
 
         private void ExecuteBrowseOutput(object? parameter)
         {
-            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf",
-                DefaultExt = ".pdf",
-                FileName = string.IsNullOrWhiteSpace(OutputPath)
-                    ? Path.GetFileNameWithoutExtension(SourcePath) + "_edited.pdf"
-                    : Path.GetFileName(OutputPath)
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-                OutputPath = saveFileDialog.FileName;
+            string? path = _dialogs.PickSaveFile("PDF Files (*.pdf)|*.pdf", ".pdf", string.IsNullOrWhiteSpace(OutputPath)
+                ? Path.GetFileNameWithoutExtension(SourcePath) + "_edited.pdf"
+                : Path.GetFileName(OutputPath));
+            if (path != null)
+                OutputPath = path;
         }
 
         private bool CanExecuteRunSave(object? parameter)
@@ -120,7 +111,10 @@ namespace PDFManager.ViewModels
             return !IsBusy && IsLoaded && !string.IsNullOrWhiteSpace(OutputPath);
         }
 
-        private async void ExecuteRunSave(object? parameter)
+        private async void ExecuteRunSave(object? parameter) => await SavePropertiesAsync();
+
+        // The Save button's work, including its messages and confirmations
+        public async Task SavePropertiesAsync()
         {
             // Saving over the source is safe here: the service writes a temporary file and moves
             // it into place only after the source is closed. Still confirm, since it changes the original
@@ -130,8 +124,7 @@ namespace PDFManager.ViewModels
                 string question = replacesSource
                     ? $"This will update the original file:\n{SourcePath}\n\nContinue?"
                     : $"\"{OutputPath}\" already exists and will be overwritten.\n\nContinue?";
-                var result = MessageBox.Show(question, "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
+                if (!_dialogs.Confirm(question, "Confirm Overwrite", DialogIcon.Warning))
                     return;
             }
 
@@ -143,24 +136,23 @@ namespace PDFManager.ViewModels
                 IsBusy = true;
                 await Task.Run(() => _pdfService.WriteMetadata(sourcePath, outputPath, metadata));
 
-                var openFolder = MessageBox.Show("Properties saved successfully!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (openFolder == MessageBoxResult.Yes)
-                    ShowInExplorer(outputPath);
+                if (_dialogs.Confirm("Properties saved successfully!\n\nOpen the output folder?", "Success", DialogIcon.Information))
+                    _dialogs.ShowInExplorer(outputPath);
             }
             catch (iText.Kernel.Exceptions.BadPasswordException)
             {
-                MessageBox.Show("This PDF is password-protected and its properties cannot be changed.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show("This PDF is password-protected and its properties cannot be changed.", "Error", DialogIcon.Error);
             }
             catch (iText.IO.Exceptions.IOException)
             {
-                MessageBox.Show("This file is not a valid PDF or is corrupted.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show("This file is not a valid PDF or is corrupted.", "Error", DialogIcon.Error);
             }
             catch (Exception ex)
             {
                 // InvalidOperationException carries the service's own validation messages
                 if (ex is not InvalidOperationException)
                     ErrorLog.Write(ex, "Metadata");
-                MessageBox.Show($"Error saving properties: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show($"Error saving properties: {ex.Message}", "Error", DialogIcon.Error);
             }
             finally
             {
@@ -207,11 +199,6 @@ namespace PDFManager.ViewModels
             Author = metadata.Author;
             Subject = metadata.Subject;
             Keywords = metadata.Keywords;
-        }
-
-        private void ShowInExplorer(string filePath)
-        {
-            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
         }
     }
 }

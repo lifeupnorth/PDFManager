@@ -17,7 +17,7 @@ namespace PDFManager.Tests
 
         public void Dispose() => _files.Dispose();
 
-        private static ImagesToPdfViewModel NewViewModel() => new ImagesToPdfViewModel(new FakePdfService());
+        private static ImagesToPdfViewModel NewViewModel() => new ImagesToPdfViewModel(new FakePdfService(), new FakeDialogService());
 
         private string Png(string name, string? folder = null)
         {

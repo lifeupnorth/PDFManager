@@ -5,7 +5,6 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using PDFManager.Base;
@@ -44,6 +43,7 @@ namespace PDFManager.ViewModels
         private const int ThumbnailWidth = 96;
 
         private readonly IPdfService _pdfService;
+        private readonly IDialogService _dialogs;
 
         public ObservableCollection<ImageItem> Images { get; } = new ObservableCollection<ImageItem>();
 
@@ -89,9 +89,10 @@ namespace PDFManager.ViewModels
         public ICommand BrowseOutputCommand { get; }
         public ICommand RunCreateCommand { get; }
 
-        public ImagesToPdfViewModel(IPdfService pdfService)
+        public ImagesToPdfViewModel(IPdfService pdfService, IDialogService dialogs)
         {
             _pdfService = pdfService;
+            _dialogs = dialogs;
             AddImagesCommand = new RelayCommand(ExecuteAddImages, _ => !IsBusy);
             RemoveImagesCommand = new RelayCommand(ExecuteRemoveImages, p => !IsBusy && p is IList { Count: > 0 });
             MoveUpCommand = new RelayCommand(p => Move(p, -1), p => !IsBusy && CanMove(p, -1));
@@ -105,14 +106,7 @@ namespace PDFManager.ViewModels
 
         private void ExecuteAddImages(object? parameter)
         {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = ImageFiles.DialogFilter,
-                Multiselect = true
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-                AddPaths(openFileDialog.FileNames);
+            AddPaths(_dialogs.PickFiles(ImageFiles.DialogFilter));
         }
 
         // Adds image files, and the images directly inside any folders, in name order. Images
@@ -199,38 +193,34 @@ namespace PDFManager.ViewModels
 
         private void ExecuteBrowseOutput(object? parameter)
         {
-            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf",
-                DefaultExt = ".pdf",
-                FileName = string.IsNullOrWhiteSpace(OutputPath) ? "Images.pdf" : System.IO.Path.GetFileName(OutputPath)
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-                OutputPath = saveFileDialog.FileName;
+            string? path = _dialogs.PickSaveFile("PDF Files (*.pdf)|*.pdf", ".pdf", string.IsNullOrWhiteSpace(OutputPath) ? "Images.pdf" : System.IO.Path.GetFileName(OutputPath));
+            if (path != null)
+                OutputPath = path;
         }
 
-        private async void ExecuteRunCreate(object? parameter)
+        private async void ExecuteRunCreate(object? parameter) => await CreatePdfAsync();
+
+        // The Create PDF button's work, including its messages and confirmations
+        public async Task CreatePdfAsync()
         {
             var missing = Images.Where(i => !File.Exists(i.Path)).Select(i => i.FileName).ToList();
             if (missing.Any())
             {
-                MessageBox.Show($"The following images no longer exist:\n{string.Join("\n", missing)}", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show($"The following images no longer exist:\n{string.Join("\n", missing)}", "Validation Error", DialogIcon.Warning);
                 return;
             }
 
             if (!Directory.Exists(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(OutputPath))))
             {
-                MessageBox.Show("The output folder does not exist. Please choose another output file.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show("The output folder does not exist. Please choose another output file.", "Validation Error", DialogIcon.Warning);
                 return;
             }
 
             if (File.Exists(OutputPath))
             {
-                var result = MessageBox.Show(
-                    $"\"{OutputPath}\" already exists and will be overwritten.\n\nContinue?",
-                    "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
+                if (!_dialogs.Confirm(
+                        $"\"{OutputPath}\" already exists and will be overwritten.\n\nContinue?",
+                        "Confirm Overwrite", DialogIcon.Warning))
                     return;
             }
 
@@ -243,19 +233,18 @@ namespace PDFManager.ViewModels
                 IsBusy = true;
                 await Task.Run(() => _pdfService.ImagesToPdf(paths, outputPath, options));
 
-                var openFolder = MessageBox.Show($"PDF created with {paths.Count} page{(paths.Count == 1 ? "" : "s")}!\n\nOpen the output folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (openFolder == MessageBoxResult.Yes)
-                    System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{outputPath}\"");
+                if (_dialogs.Confirm($"PDF created with {paths.Count} page{(paths.Count == 1 ? "" : "s")}!\n\nOpen the output folder?", "Success", DialogIcon.Information))
+                    _dialogs.ShowInExplorer(outputPath);
             }
             catch (InvalidOperationException ex)
             {
                 // The service names the image it could not read
-                MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show(ex.Message, "Error", DialogIcon.Error);
             }
             catch (Exception ex)
             {
                 ErrorLog.Write(ex, "ImagesToPdf");
-                MessageBox.Show($"Error creating PDF: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show($"Error creating PDF: {ex.Message}", "Error", DialogIcon.Error);
             }
             finally
             {

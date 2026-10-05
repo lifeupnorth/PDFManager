@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using PDFManager.Base;
 using PDFManager.Services;
@@ -84,6 +83,7 @@ namespace PDFManager.ViewModels
     public class BatchViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
+        private readonly IDialogService _dialogs;
         private CancellationTokenSource? _cancel;
 
         public ObservableCollection<BatchFile> Files { get; } = new ObservableCollection<BatchFile>();
@@ -215,9 +215,10 @@ namespace PDFManager.ViewModels
         public ICommand RunBatchCommand { get; }
         public ICommand CancelCommand { get; }
 
-        public BatchViewModel(IPdfService pdfService)
+        public BatchViewModel(IPdfService pdfService, IDialogService dialogs)
         {
             _pdfService = pdfService;
+            _dialogs = dialogs;
             AddFilesCommand = new RelayCommand(ExecuteAddFiles, _ => !IsBusy);
             AddFolderCommand = new RelayCommand(ExecuteAddFolder, _ => !IsBusy);
             RemoveFilesCommand = new RelayCommand(ExecuteRemoveFiles, p => !IsBusy && p is System.Collections.IList { Count: > 0 });
@@ -275,9 +276,8 @@ namespace PDFManager.ViewModels
             string name = BatchPreset.CleanName(NewPresetName);
             if (FindPreset(name) is { } existing)
             {
-                var replace = MessageBox.Show($"A preset named \"{existing.Name}\" already exists. Replace it with the current settings?",
-                    "Replace Preset", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (replace != MessageBoxResult.Yes)
+                if (!_dialogs.Confirm($"A preset named \"{existing.Name}\" already exists. Replace it with the current settings?",
+                        "Replace Preset", DialogIcon.Question))
                     return;
             }
             SaveCurrentAsPreset(name);
@@ -315,8 +315,7 @@ namespace PDFManager.ViewModels
         {
             if (parameter is not BatchPresetItem item)
                 return;
-            var confirm = MessageBox.Show($"Delete the preset \"{item.Name}\"?", "Delete Preset", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (confirm == MessageBoxResult.Yes)
+            if (_dialogs.Confirm($"Delete the preset \"{item.Name}\"?", "Delete Preset", DialogIcon.Question))
                 DeletePreset(item);
         }
 
@@ -345,21 +344,14 @@ namespace PDFManager.ViewModels
 
         private void ExecuteAddFiles(object? parameter)
         {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf",
-                Multiselect = true
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-                AddPaths(openFileDialog.FileNames);
+            AddPaths(_dialogs.PickFiles("PDF Files (*.pdf)|*.pdf"));
         }
 
         private void ExecuteAddFolder(object? parameter)
         {
-            var folderDialog = new Microsoft.Win32.OpenFolderDialog { Title = "Choose a folder of PDFs" };
-            if (folderDialog.ShowDialog() == true && AddPaths(new[] { folderDialog.FolderName }) == 0)
-                MessageBox.Show("That folder has no PDF files.", "No Files Added", MessageBoxButton.OK, MessageBoxImage.Information);
+            string? folder = _dialogs.PickFolder("Choose a folder of PDFs");
+            if (folder != null && AddPaths(new[] { folder }) == 0)
+                _dialogs.Show("That folder has no PDF files.", "No Files Added", DialogIcon.Information);
         }
 
         // Adds PDF files, and the PDFs directly inside any folders. Files already listed are
@@ -398,11 +390,9 @@ namespace PDFManager.ViewModels
 
         private void ExecuteBrowseOutput(object? parameter)
         {
-            var folderDialog = new Microsoft.Win32.OpenFolderDialog { Title = "Choose where to save the processed files" };
-            if (HasOutputFolder)
-                folderDialog.InitialDirectory = OutputFolder;
-            if (folderDialog.ShowDialog() == true)
-                OutputFolder = folderDialog.FolderName;
+            string? folder = _dialogs.PickFolder("Choose where to save the processed files", HasOutputFolder ? OutputFolder : null);
+            if (folder != null)
+                OutputFolder = folder;
         }
 
         // --- Planning outputs ---
@@ -436,7 +426,10 @@ namespace PDFManager.ViewModels
 
         // --- Running ---
 
-        private async void ExecuteRunBatch(object? parameter)
+        private async void ExecuteRunBatch(object? parameter) => await RunBatchAsync();
+
+        // The Process files button's work, including its messages and confirmations
+        public async Task RunBatchAsync()
         {
             string? problem = Action switch
             {
@@ -451,7 +444,7 @@ namespace PDFManager.ViewModels
             };
             if (problem != null)
             {
-                MessageBox.Show(problem, "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show(problem, "Validation Error", DialogIcon.Warning);
                 return;
             }
 
@@ -461,10 +454,9 @@ namespace PDFManager.ViewModels
                 string list = string.Join("\n", existing.Take(8).Select(System.IO.Path.GetFileName));
                 if (existing.Count > 8)
                     list += $"\n...and {existing.Count - 8} more";
-                var result = MessageBox.Show(
-                    $"{existing.Count} output file{(existing.Count == 1 ? "" : "s")} already exist{(existing.Count == 1 ? "s" : "")} and will be overwritten:\n{list}\n\nContinue?",
-                    "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
+                if (!_dialogs.Confirm(
+                        $"{existing.Count} output file{(existing.Count == 1 ? "" : "s")} already exist{(existing.Count == 1 ? "s" : "")} and will be overwritten:\n{list}\n\nContinue?",
+                        "Confirm Overwrite", DialogIcon.Warning))
                     return;
             }
 
@@ -481,13 +473,12 @@ namespace PDFManager.ViewModels
 
             if (FirstOutputPath != null)
             {
-                var open = MessageBox.Show(summary + "\n\nOpen the output folder?", "Batch Finished", MessageBoxButton.YesNo, failed > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
-                if (open == MessageBoxResult.Yes)
-                    System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{FirstOutputPath}\"");
+                if (_dialogs.Confirm(summary + "\n\nOpen the output folder?", "Batch Finished", failed > 0 ? DialogIcon.Warning : DialogIcon.Information))
+                    _dialogs.ShowInExplorer(FirstOutputPath);
             }
             else
             {
-                MessageBox.Show(summary, "Batch Finished", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _dialogs.Show(summary, "Batch Finished", DialogIcon.Warning);
             }
         }
 

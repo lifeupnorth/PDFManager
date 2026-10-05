@@ -23,7 +23,7 @@ namespace PDFManager.Tests
             _temp.Dispose();
         }
 
-        private static BatchViewModel NewBatch() => new BatchViewModel(new FakePdfService());
+        private static BatchViewModel NewBatch() => new BatchViewModel(new FakePdfService(), new FakeDialogService());
 
         private static BatchViewModel Configured()
         {
@@ -153,6 +153,54 @@ namespace PDFManager.Tests
 
             batch.NewPresetName = "Rotate scans";
             Assert.True(batch.SavePresetCommand.CanExecute(null));
+        }
+
+        // --- The confirmations behind the Save and × buttons ---
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void Saving_under_an_existing_name_asks_first(bool yes)
+        {
+            var dialogs = new FakeDialogService { Answer = _ => yes };
+            var batch = new BatchViewModel(new FakePdfService(), dialogs);
+            batch.SaveCurrentAsPreset("Weekly");
+            batch.RotationAngle = 180;
+            batch.NewPresetName = "weekly";
+
+            batch.SavePresetCommand.Execute(null);
+
+            Assert.Equal(new DialogCall(true, "A preset named \"Weekly\" already exists. Replace it with the current settings?", "Replace Preset", DialogIcon.Question), Assert.Single(dialogs.Calls));
+            Assert.Equal(yes ? 180 : 90, Assert.Single(batch.Presets).Preset.RotationAngle);
+            // No keeps the typed name, so it can be changed instead
+            Assert.Equal(yes ? "" : "weekly", batch.NewPresetName);
+        }
+
+        [Fact]
+        public void Saving_under_a_new_name_asks_nothing()
+        {
+            var dialogs = new FakeDialogService();
+            var batch = new BatchViewModel(new FakePdfService(), dialogs) { NewPresetName = "Weekly" };
+
+            batch.SavePresetCommand.Execute(null);
+
+            Assert.Empty(dialogs.Calls);
+            Assert.Equal("Weekly", Assert.Single(batch.Presets).Name);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void Deleting_a_preset_asks_first(bool yes)
+        {
+            var dialogs = new FakeDialogService { Answer = _ => yes };
+            var batch = new BatchViewModel(new FakePdfService(), dialogs);
+            batch.SaveCurrentAsPreset("Weekly");
+
+            batch.DeletePresetCommand.Execute(batch.Presets[0]);
+
+            Assert.Equal(new DialogCall(true, "Delete the preset \"Weekly\"?", "Delete Preset", DialogIcon.Question), Assert.Single(dialogs.Calls));
+            Assert.Equal(yes ? 0 : 1, batch.Presets.Count);
         }
     }
 }

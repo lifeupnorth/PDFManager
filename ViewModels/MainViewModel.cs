@@ -32,15 +32,15 @@ namespace PDFManager.ViewModels
         {
             Split = new SplitViewModel(pdfService, pageRenderer, dialogs);
             Merge = new MergeViewModel(pdfService, dialogs);
-            Rotate = new RotateViewModel(pdfService, pageRenderer);
-            Extract = new ExtractViewModel(pdfService, pageRenderer);
-            Metadata = new MetadataViewModel(pdfService);
-            Protect = new ProtectViewModel(pdfService);
-            Unlock = new UnlockViewModel(pdfService);
-            Watermark = new WatermarkViewModel(pdfService, pageRenderer);
-            Batch = new BatchViewModel(pdfService);
-            PdfToImage = new PdfToImageViewModel(pdfService, pageRenderer);
-            ImagesToPdf = new ImagesToPdfViewModel(pdfService);
+            Rotate = new RotateViewModel(pdfService, pageRenderer, dialogs);
+            Extract = new ExtractViewModel(pdfService, pageRenderer, dialogs);
+            Metadata = new MetadataViewModel(pdfService, dialogs);
+            Protect = new ProtectViewModel(pdfService, dialogs);
+            Unlock = new UnlockViewModel(pdfService, dialogs);
+            Watermark = new WatermarkViewModel(pdfService, pageRenderer, dialogs);
+            Batch = new BatchViewModel(pdfService, dialogs);
+            PdfToImage = new PdfToImageViewModel(pdfService, pageRenderer, dialogs);
+            ImagesToPdf = new ImagesToPdfViewModel(pdfService, dialogs);
             HomeView = new HomeViewModel(new AppearanceViewModel(applyTheme));
             _currentView = HomeView;
         }

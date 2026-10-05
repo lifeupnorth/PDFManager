@@ -16,7 +16,7 @@ namespace PDFManager.Tests
 
         public void Dispose() => _pdfs.Dispose();
 
-        private BatchViewModel NewBatch() => new BatchViewModel(_service);
+        private BatchViewModel NewBatch() => new BatchViewModel(_service, new FakeDialogService());
 
         private string Subfolder(string name)
         {
@@ -183,7 +183,7 @@ namespace PDFManager.Tests
                         firstMayFinish.Wait();
                     }
                 }
-            });
+            }, new FakeDialogService());
             batch.AddPaths(new[] { @"C:\Docs\1.pdf", @"C:\Docs\2.pdf", @"C:\Docs\3.pdf" });
 
             Task run = batch.ProcessAsync();

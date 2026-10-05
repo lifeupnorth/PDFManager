@@ -99,7 +99,7 @@ namespace PDFManager.Tests
 
         private static async Task<ExtractViewModel> LoadedExtract(int pages)
         {
-            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer { PageCount = _ => pages });
+            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer { PageCount = _ => pages }, new FakeDialogService());
             await vm.UpdateFileAsync(Doc);
             await vm.Thumbnails.Loading;
             return vm;
@@ -138,7 +138,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Extract_applies_a_list_typed_before_the_pages_load()
         {
-            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => 4 }, new FakePageRenderer { PageCount = _ => 4 });
+            var vm = new ExtractViewModel(new FakePdfService { PageCount = _ => 4 }, new FakePageRenderer { PageCount = _ => 4 }, new FakeDialogService());
             vm.PageSpec = "3-4";
 
             await vm.UpdateFileAsync(Doc);
@@ -151,7 +151,7 @@ namespace PDFManager.Tests
 
         private static async Task<RotateViewModel> LoadedRotate(int pages)
         {
-            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer { PageCount = _ => pages });
+            var vm = new RotateViewModel(new FakePdfService { PageCount = _ => pages }, new FakePageRenderer { PageCount = _ => pages }, new FakeDialogService());
             await vm.UpdateFileAsync(Doc);
             await vm.Thumbnails.Loading;
             return vm;
@@ -205,7 +205,7 @@ namespace PDFManager.Tests
         [Fact]
         public async Task Watermark_clicking_a_page_switches_off_all_pages()
         {
-            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => 3 }, new FakePageRenderer { PageCount = _ => 3 });
+            var vm = new WatermarkViewModel(new FakePdfService { PageCount = _ => 3 }, new FakePageRenderer { PageCount = _ => 3 }, new FakeDialogService());
             await vm.UpdateFileAsync(Doc);
             await vm.Thumbnails.Loading;
 

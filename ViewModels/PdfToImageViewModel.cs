@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using PDFManager.Base;
 using PDFManager.Services;
@@ -14,6 +13,7 @@ namespace PDFManager.ViewModels
     public class PdfToImageViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
+        private readonly IDialogService _dialogs;
         private readonly PdfImageExporter _exporter;
         private readonly PageListSelection _pageSelection;
         private CancellationTokenSource? _cancel;
@@ -105,9 +105,10 @@ namespace PDFManager.ViewModels
         public ICommand RunConvertCommand { get; }
         public ICommand CancelCommand { get; }
 
-        public PdfToImageViewModel(IPdfService pdfService, IPageRenderer pageRenderer)
+        public PdfToImageViewModel(IPdfService pdfService, IPageRenderer pageRenderer, IDialogService dialogs)
         {
             _pdfService = pdfService;
+            _dialogs = dialogs;
             _exporter = new PdfImageExporter(pageRenderer);
             Thumbnails = new PageThumbnailsViewModel(pageRenderer);
             _pageSelection = new PageListSelection(Thumbnails, () => PageSpec, list => PageSpec = list, () => AllPages, () => AllPages = false);
@@ -119,33 +120,31 @@ namespace PDFManager.ViewModels
 
         private async void ExecuteOpenFile(object? parameter)
         {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "PDF Files (*.pdf)|*.pdf"
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-                await UpdateFileAsync(openFileDialog.FileName);
+            string? path = _dialogs.PickFile("PDF Files (*.pdf)|*.pdf");
+            if (path != null)
+                await UpdateFileAsync(path);
         }
 
         private void ExecuteBrowseOutput(object? parameter)
         {
-            var folderDialog = new Microsoft.Win32.OpenFolderDialog { Title = "Choose where to save the images" };
             string? existing = Directory.Exists(OutputFolder) ? OutputFolder : Path.GetDirectoryName(OutputFolder);
-            if (!string.IsNullOrEmpty(existing) && Directory.Exists(existing))
-                folderDialog.InitialDirectory = existing;
-            if (folderDialog.ShowDialog() == true)
-                OutputFolder = folderDialog.FolderName;
+            string? folder = _dialogs.PickFolder("Choose where to save the images",
+                !string.IsNullOrEmpty(existing) && Directory.Exists(existing) ? existing : null);
+            if (folder != null)
+                OutputFolder = folder;
         }
 
-        private async void ExecuteRunConvert(object? parameter)
+        private async void ExecuteRunConvert(object? parameter) => await RunConvertAsync();
+
+        // The Convert button's work, including its messages and confirmations
+        public async Task RunConvertAsync()
         {
             ISet<int>? pages = null;
             if (!AllPages)
             {
                 if (string.IsNullOrWhiteSpace(PageSpec))
                 {
-                    MessageBox.Show("Please enter the pages to convert (for example: 1, 3, 5-7), or choose \"All pages\".", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    _dialogs.Show("Please enter the pages to convert (for example: 1, 3, 5-7), or choose \"All pages\".", "Validation Error", DialogIcon.Warning);
                     return;
                 }
                 try
@@ -154,7 +153,7 @@ namespace PDFManager.ViewModels
                 }
                 catch (InvalidOperationException ex)
                 {
-                    MessageBox.Show(ex.Message, "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    _dialogs.Show(ex.Message, "Validation Error", DialogIcon.Warning);
                     return;
                 }
             }
@@ -165,10 +164,9 @@ namespace PDFManager.ViewModels
                 int existing = planned.Count(File.Exists);
                 if (existing > 0)
                 {
-                    var result = MessageBox.Show(
-                        $"{existing} image{(existing == 1 ? "" : "s")} in \"{OutputFolder}\" will be overwritten.\n\nContinue?",
-                        "Confirm Overwrite", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (result != MessageBoxResult.Yes)
+                    if (!_dialogs.Confirm(
+                            $"{existing} image{(existing == 1 ? "" : "s")} in \"{OutputFolder}\" will be overwritten.\n\nContinue?",
+                            "Confirm Overwrite", DialogIcon.Warning))
                         return;
                 }
             }
@@ -177,17 +175,16 @@ namespace PDFManager.ViewModels
             var outcome = await ConvertAsync(pages);
             if (outcome.Error != null)
             {
-                MessageBox.Show(outcome.Error, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                _dialogs.Show(outcome.Error, "Error", DialogIcon.Error);
             }
             else if (outcome.Cancelled)
             {
-                MessageBox.Show($"Conversion cancelled after {outcome.Saved} of {total} pages. The images already saved were kept.", "Cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
+                _dialogs.Show($"Conversion cancelled after {outcome.Saved} of {total} pages. The images already saved were kept.", "Cancelled", DialogIcon.Information);
             }
             else
             {
-                var open = MessageBox.Show($"Saved {outcome.Saved} image{(outcome.Saved == 1 ? "" : "s")} to:\n{OutputFolder}\n\nOpen the folder?", "Success", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (open == MessageBoxResult.Yes && outcome.FirstFile != null)
-                    System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{outcome.FirstFile}\"");
+                if (_dialogs.Confirm($"Saved {outcome.Saved} image{(outcome.Saved == 1 ? "" : "s")} to:\n{OutputFolder}\n\nOpen the folder?", "Success", DialogIcon.Information) && outcome.FirstFile != null)
+                    _dialogs.ShowInExplorer(outcome.FirstFile);
             }
         }
 
