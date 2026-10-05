@@ -17,6 +17,7 @@ namespace PDFManager.ViewModels
         public PdfToImageViewModel PdfToImage { get; }
         public ImagesToPdfViewModel ImagesToPdf { get; }
         public HomeViewModel HomeView { get; }
+        public SidebarViewModel Sidebar { get; } = new SidebarViewModel();
 
         // The view model shown in the main area; its DataTemplate supplies the view
         private object _currentView;

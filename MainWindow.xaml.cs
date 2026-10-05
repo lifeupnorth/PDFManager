@@ -52,6 +52,8 @@ namespace PDFManager
             if (DataContext is not MainViewModel vm) return; // fired while InitializeComponent is still running
             if (sender is FrameworkElement fe && int.TryParse(fe.Tag?.ToString(), out int index))
             {
+                // Keep the chosen tool's highlight visible, even when it was opened from a Home card
+                vm.Sidebar.ExpandSectionOf(index);
                 vm.CurrentView = index switch
                 {
                     1 => vm.Split,

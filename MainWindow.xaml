@@ -1224,81 +1224,96 @@
                             </StackPanel>
                         </RadioButton>
 
-                        <TextBlock Text="ORGANIZE" Style="{StaticResource SectionLabel}" Margin="22,12,0,4"/>
-                        <RadioButton x:Name="navMerge" AutomationProperties.Name="Merge PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="2" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconMerge}"/>
-                                <TextBlock Text="Merge PDF" VerticalAlignment="Center"/>
+                        <Expander Header="ORGANIZE" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.OrganizeExpanded}" AutomationProperties.Name="Organize tools">
+                            <StackPanel>
+                                <RadioButton x:Name="navMerge" AutomationProperties.Name="Merge PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="2" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconMerge}"/>
+                                        <TextBlock Text="Merge PDF" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="navSplit" AutomationProperties.Name="Split PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="1" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconSplit}"/>
+                                        <TextBlock Text="Split PDF" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="navExtract" AutomationProperties.Name="Extract pages" Style="{StaticResource NavItem}" GroupName="Nav" Tag="4" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconExtract}"/>
+                                        <TextBlock Text="Extract pages" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
                             </StackPanel>
-                        </RadioButton>
-                        <RadioButton x:Name="navSplit" AutomationProperties.Name="Split PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="1" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconSplit}"/>
-                                <TextBlock Text="Split PDF" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
-                        <RadioButton x:Name="navExtract" AutomationProperties.Name="Extract pages" Style="{StaticResource NavItem}" GroupName="Nav" Tag="4" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconExtract}"/>
-                                <TextBlock Text="Extract pages" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
+                        </Expander>
 
-                        <TextBlock Text="EDIT" Style="{StaticResource SectionLabel}" Margin="22,12,0,4"/>
-                        <RadioButton x:Name="navRotate" AutomationProperties.Name="Rotate PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="3" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconRotate}"/>
-                                <TextBlock Text="Rotate PDF" VerticalAlignment="Center"/>
+                        <Expander Header="EDIT" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.EditExpanded}" AutomationProperties.Name="Edit tools">
+                            <StackPanel>
+                                <RadioButton x:Name="navRotate" AutomationProperties.Name="Rotate PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="3" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconRotate}"/>
+                                        <TextBlock Text="Rotate PDF" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="navMetadata" AutomationProperties.Name="Edit metadata" Style="{StaticResource NavItem}" GroupName="Nav" Tag="5" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconTag}"/>
+                                        <TextBlock Text="Edit metadata" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="navWatermark" AutomationProperties.Name="Add watermark" Style="{StaticResource NavItem}" GroupName="Nav" Tag="8" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconWatermark}"/>
+                                        <TextBlock Text="Add watermark" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
                             </StackPanel>
-                        </RadioButton>
-                        <RadioButton x:Name="navMetadata" AutomationProperties.Name="Edit metadata" Style="{StaticResource NavItem}" GroupName="Nav" Tag="5" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconTag}"/>
-                                <TextBlock Text="Edit metadata" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
-                        <RadioButton x:Name="navWatermark" AutomationProperties.Name="Add watermark" Style="{StaticResource NavItem}" GroupName="Nav" Tag="8" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconWatermark}"/>
-                                <TextBlock Text="Add watermark" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
+                        </Expander>
 
-                        <TextBlock Text="SECURITY" Style="{StaticResource SectionLabel}" Margin="22,12,0,4"/>
-                        <RadioButton x:Name="navUnlock" AutomationProperties.Name="Unlock PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="7" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconUnlock}"/>
-                                <TextBlock Text="Unlock PDF" VerticalAlignment="Center"/>
+                        <Expander Header="SECURITY" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.SecurityExpanded}" AutomationProperties.Name="Security tools">
+                            <StackPanel>
+                                <RadioButton x:Name="navUnlock" AutomationProperties.Name="Unlock PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="7" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconUnlock}"/>
+                                        <TextBlock Text="Unlock PDF" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="navProtect" AutomationProperties.Name="Protect PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="6" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconLock}"/>
+                                        <TextBlock Text="Protect PDF" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
                             </StackPanel>
-                        </RadioButton>
-                        <RadioButton x:Name="navProtect" AutomationProperties.Name="Protect PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="6" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconLock}"/>
-                                <TextBlock Text="Protect PDF" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
+                        </Expander>
 
-                        <TextBlock Text="CONVERT" Style="{StaticResource SectionLabel}" Margin="22,12,0,4"/>
-                        <RadioButton x:Name="navPdfToImage" AutomationProperties.Name="PDF to image" Style="{StaticResource NavItem}" GroupName="Nav" Tag="10" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconImage}"/>
-                                <TextBlock Text="PDF to image" VerticalAlignment="Center"/>
+                        <Expander Header="CONVERT" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.ConvertExpanded}" AutomationProperties.Name="Convert tools">
+                            <StackPanel>
+                                <RadioButton x:Name="navPdfToImage" AutomationProperties.Name="PDF to image" Style="{StaticResource NavItem}" GroupName="Nav" Tag="10" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconImage}"/>
+                                        <TextBlock Text="PDF to image" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="navImagesToPdf" AutomationProperties.Name="Image to PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="11" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconImageToPdf}"/>
+                                        <TextBlock Text="Image to PDF" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
                             </StackPanel>
-                        </RadioButton>
-                        <RadioButton x:Name="navImagesToPdf" AutomationProperties.Name="Image to PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="11" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconImageToPdf}"/>
-                                <TextBlock Text="Image to PDF" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
+                        </Expander>
 
-                        <TextBlock Text="BATCH" Style="{StaticResource SectionLabel}" Margin="22,12,0,4"/>
-                        <RadioButton x:Name="navBatch" AutomationProperties.Name="Batch processing" Style="{StaticResource NavItem}" GroupName="Nav" Tag="9" Checked="Nav_Checked">
-                            <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconBatch}"/>
-                                <TextBlock Text="Batch processing" VerticalAlignment="Center"/>
+                        <Expander Header="BATCH" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.BatchExpanded}" AutomationProperties.Name="Batch tools">
+                            <StackPanel>
+                                <RadioButton x:Name="navBatch" AutomationProperties.Name="Batch processing" Style="{StaticResource NavItem}" GroupName="Nav" Tag="9" Checked="Nav_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconBatch}"/>
+                                        <TextBlock Text="Batch processing" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </RadioButton>
                             </StackPanel>
-                        </RadioButton>
+                        </Expander>
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>
