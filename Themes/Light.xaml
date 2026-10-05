@@ -30,6 +30,11 @@
     <SolidColorBrush x:Key="PaperBrush" Color="#FFFFFF" po:Freeze="True"/>
     <SolidColorBrush x:Key="PaperBorderBrush" Color="#D5D5DC" po:Freeze="True"/>
 
+    <!-- Scroll bar thumb: at least 3:1 against every background it scrolls -->
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#7A7A84" po:Freeze="True"/>
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#66666F" po:Freeze="True"/>
+    <SolidColorBrush x:Key="ScrollThumbPressedBrush" Color="#55555E" po:Freeze="True"/>
+
     <SolidColorBrush x:Key="TextBrush" Color="#1C1C1E" po:Freeze="True"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#55555E" po:Freeze="True"/>
     <SolidColorBrush x:Key="TextMutedBrush" Color="#66666F" po:Freeze="True"/>

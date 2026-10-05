@@ -114,6 +114,24 @@ namespace PDFManager.Tests
                     $"{theme}: {category} icon is {Contrast(c[category + "IconBrush"], c[category + "TileBrush"]):0.00}:1 on its tile");
         }
 
+        [Theory]
+        [InlineData("Dark")]
+        [InlineData("Light")]
+        public void Scroll_bar_thumbs_stand_out_from_what_they_scroll(string theme)
+        {
+            var c = Palette(theme);
+            foreach (string background in new[] { "WindowBrush", "SidebarBrush", "PanelBrush", "CardBrush" })
+                Assert.True(Contrast(c["ScrollThumbBrush"], c[background]) >= 3,
+                    $"{theme}: the thumb is {Contrast(c["ScrollThumbBrush"], c[background]):0.00}:1 on {background}");
+        }
+
+        [Fact]
+        public void Every_scroll_bar_uses_the_themed_style()
+        {
+            // No x:Key, so WPF applies it to all scroll bars, including those inside ScrollViewer templates
+            Assert.Contains("<Style TargetType=\"ScrollBar\">", Read("App.xaml"));
+        }
+
         [Fact]
         public void Light_input_borders_are_visible_against_the_input()
         {
