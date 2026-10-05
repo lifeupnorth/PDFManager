@@ -58,6 +58,29 @@ namespace PDFManager.ViewModels
         public override string ToString() => Path;
     }
 
+    /// <summary>A saved preset in the Batch panel, highlighted while the settings match it.</summary>
+    public class BatchPresetItem : ObservableObject
+    {
+        public BatchPresetItem(BatchPreset preset) => Preset = preset;
+
+        public BatchPreset Preset { get; }
+        public string Name => Preset.Name;
+
+        private bool _isActive;
+        public bool IsActive
+        {
+            get => _isActive;
+            set
+            {
+                if (SetProperty(ref _isActive, value))
+                    OnPropertyChanged(nameof(ApplyName));
+            }
+        }
+
+        public string ApplyName => $"Apply preset {Name}" + (IsActive ? ", applied" : "");
+        public string DeleteName => $"Delete preset {Name}";
+    }
+
     public class BatchViewModel : ObservableObject
     {
         private readonly IPdfService _pdfService;
@@ -166,6 +189,23 @@ namespace PDFManager.ViewModels
             set => SetProperty(ref _progressText, value);
         }
 
+        // --- Presets ---
+
+        public ObservableCollection<BatchPresetItem> Presets { get; } = new ObservableCollection<BatchPresetItem>();
+
+        public bool HasPresets => Presets.Count > 0;
+
+        private string _newPresetName = string.Empty;
+        public string NewPresetName
+        {
+            get => _newPresetName;
+            set => SetProperty(ref _newPresetName, value);
+        }
+
+        public ICommand SavePresetCommand { get; }
+        public ICommand ApplyPresetCommand { get; }
+        public ICommand DeletePresetCommand { get; }
+
         public ICommand AddFilesCommand { get; }
         public ICommand AddFolderCommand { get; }
         public ICommand RemoveFilesCommand { get; }
@@ -189,6 +229,116 @@ namespace PDFManager.ViewModels
 
             // Collection changes are not property changes, so ask for a CanExecute requery here too
             Files.CollectionChanged += (s, e) => CommandManager.InvalidateRequerySuggested();
+
+            SavePresetCommand = new RelayCommand(ExecuteSavePreset, _ => !IsBusy && BatchPreset.CleanName(NewPresetName).Length > 0);
+            ApplyPresetCommand = new RelayCommand(p => { if (p is BatchPresetItem item) ApplyPreset(item.Preset); }, _ => !IsBusy);
+            DeletePresetCommand = new RelayCommand(ExecuteDeletePreset, _ => !IsBusy);
+
+            foreach (var stored in AppSettings.Load().BatchPresets)
+            {
+                var preset = stored.Normalized();
+                if (preset.Name.Length > 0 && FindPreset(preset.Name) == null)
+                    Presets.Add(new BatchPresetItem(preset));
+            }
+            Presets.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasPresets));
+
+            // Highlight the preset the settings match, and stop highlighting it as soon as they change
+            PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName is nameof(Action) or nameof(RotationAngle) or nameof(WatermarkText) or nameof(WatermarkDiagonal)
+                    or nameof(WatermarkOpacity) or nameof(PageSpec) or nameof(OutputFolder))
+                    UpdateActivePreset();
+            };
+            UpdateActivePreset();
+        }
+
+        // --- Presets ---
+
+        private BatchPresetItem? FindPreset(string name) =>
+            Presets.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        // The current settings as a preset. Passwords are left out on purpose
+        public BatchPreset CurrentSettings(string name) => new BatchPreset
+        {
+            Name = BatchPreset.CleanName(name),
+            Action = Action.ToString(),
+            RotationAngle = RotationAngle,
+            WatermarkText = WatermarkText,
+            WatermarkDiagonal = WatermarkDiagonal,
+            WatermarkOpacity = WatermarkOpacity,
+            PageSpec = PageSpec,
+            OutputFolder = OutputFolder
+        };
+
+        private void ExecuteSavePreset(object? parameter)
+        {
+            string name = BatchPreset.CleanName(NewPresetName);
+            if (FindPreset(name) is { } existing)
+            {
+                var replace = MessageBox.Show($"A preset named \"{existing.Name}\" already exists. Replace it with the current settings?",
+                    "Replace Preset", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (replace != MessageBoxResult.Yes)
+                    return;
+            }
+            SaveCurrentAsPreset(name);
+            NewPresetName = string.Empty;
+        }
+
+        // Saves the current settings under name, replacing a preset of the same name in place
+        public void SaveCurrentAsPreset(string name)
+        {
+            var preset = CurrentSettings(name);
+            if (preset.Name.Length == 0)
+                throw new ArgumentException("A preset needs a name.", nameof(name));
+
+            var item = new BatchPresetItem(preset);
+            if (FindPreset(preset.Name) is { } existing)
+                Presets[Presets.IndexOf(existing)] = item;
+            else
+                Presets.Add(item);
+            StorePresets();
+            UpdateActivePreset();
+        }
+
+        public void ApplyPreset(BatchPreset preset)
+        {
+            Action = Enum.TryParse(preset.Action, ignoreCase: true, out BatchAction action) && Enum.IsDefined(action) ? action : BatchAction.Rotate;
+            RotationAngle = preset.RotationAngle;
+            WatermarkText = preset.WatermarkText;
+            WatermarkDiagonal = preset.WatermarkDiagonal;
+            WatermarkOpacity = preset.WatermarkOpacity;
+            PageSpec = preset.PageSpec;
+            OutputFolder = preset.OutputFolder;
+        }
+
+        private void ExecuteDeletePreset(object? parameter)
+        {
+            if (parameter is not BatchPresetItem item)
+                return;
+            var confirm = MessageBox.Show($"Delete the preset \"{item.Name}\"?", "Delete Preset", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (confirm == MessageBoxResult.Yes)
+                DeletePreset(item);
+        }
+
+        public void DeletePreset(BatchPresetItem item)
+        {
+            Presets.Remove(item);
+            StorePresets();
+        }
+
+        private void StorePresets()
+        {
+            // Re-read so only the presets change, whatever else the file holds
+            var settings = AppSettings.Load();
+            settings.BatchPresets = Presets.Select(p => p.Preset).ToList();
+            AppSettings.Save(settings);
+        }
+
+        private void UpdateActivePreset()
+        {
+            var current = CurrentSettings(string.Empty);
+            foreach (var item in Presets)
+                item.IsActive = item.Preset.SameSettingsAs(current);
         }
 
         // --- Adding files ---

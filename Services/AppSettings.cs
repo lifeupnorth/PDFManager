@@ -14,6 +14,9 @@ namespace PDFManager.Services
         // Sidebar sections the user has collapsed, by name
         public List<string> CollapsedSections { get; set; } = new List<string>();
 
+        // Saved Batch settings, in the order they were created
+        public List<BatchPreset> BatchPresets { get; set; } = new List<BatchPreset>();
+
         // "System", "Light" or "Dark". Dark until the user chooses, which is how the app always looked
         public string Theme { get; set; } = nameof(AppTheme.Dark);
 

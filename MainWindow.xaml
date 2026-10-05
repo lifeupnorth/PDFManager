@@ -113,6 +113,27 @@
             </DockPanel>
         </DataTemplate>
 
+        <!-- A saved Batch preset: its name applies it, the cross deletes it. Highlighted while the
+             settings match it -->
+        <DataTemplate x:Key="BatchPresetTemplate">
+            <Border x:Name="chip" CornerRadius="16" BorderThickness="1" BorderBrush="{DynamicResource BorderStrongBrush}" Background="{DynamicResource CardBrush}" Margin="0,0,6,6">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="{Binding Name}" Style="{StaticResource ChipButton}" Padding="12,6,6,6" ToolTip="Apply these settings"
+                            Command="{Binding DataContext.ApplyPresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                            AutomationProperties.Name="{Binding ApplyName}"/>
+                    <Button Content="×" Style="{StaticResource ChipButton}" Padding="6,6,10,6" ToolTip="Delete this preset"
+                            Command="{Binding DataContext.DeletePresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                            AutomationProperties.Name="{Binding DeleteName}"/>
+                </StackPanel>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                    <Setter TargetName="chip" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                    <Setter TargetName="chip" Property="Background" Value="{DynamicResource AccentTintBrush}"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
         <!-- DataTemplates for ViewModels -->
         <DataTemplate DataType="{x:Type vm:HomeViewModel}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -950,6 +971,23 @@
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="24,24,24,16">
                                 <TextBlock Text="Batch processing" Style="{StaticResource SidebarTitle}"/>
+
+                                <TextBlock Text="PRESETS" Style="{StaticResource SectionLabel}"/>
+                                <Label Content="None yet. Choose the settings below, then name and save them here." Style="{StaticResource HintLabel}" Margin="0,0,0,8"
+                                       Visibility="{Binding HasPresets, Converter={StaticResource InverseBoolToVisibility}}"/>
+                                <ItemsControl ItemsSource="{Binding Presets}" ItemTemplate="{StaticResource BatchPresetTemplate}" Focusable="False" AutomationProperties.Name="Saved presets">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                                <DockPanel Margin="0,4,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Save" Command="{Binding SavePresetCommand}" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"/>
+                                    <TextBox Text="{Binding NewPresetName, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" Style="{StaticResource Input}"
+                                             AutomationProperties.Name="New preset name" ToolTip="A name for the current settings, such as Stamp CONFIDENTIAL"/>
+                                </DockPanel>
+                                <Label Style="{StaticResource HintLabel}" Content="A preset keeps the action, its options and the output folder. Passwords are never saved."/>
 
                                 <TextBlock Text="ACTION" Style="{StaticResource SectionLabel}"/>
                                 <UniformGrid Columns="2">
