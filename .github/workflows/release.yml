@@ -49,4 +49,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $files = (Get-ChildItem artifacts/installers/*.exe).FullName
-          gh release create $env:GITHUB_REF_NAME @files --title "PDF Manager $env:GITHUB_REF_NAME" --generate-notes
+          # The installers section from release-notes.md, then GitHub's generated changelog
+          $notes = (Get-Content .github/release-notes.md -Raw -Encoding utf8).Replace('{version}', $env:GITHUB_REF_NAME.TrimStart('v'))
+          gh release create $env:GITHUB_REF_NAME @files --title "PDF Manager $env:GITHUB_REF_NAME" --notes $notes --generate-notes
