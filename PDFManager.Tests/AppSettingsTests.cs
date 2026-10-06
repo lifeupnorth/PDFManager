@@ -73,9 +73,10 @@ namespace PDFManager.Tests
         }
 
         // Another window, or a test in another collection, can be reading the file just as it is
-        // replaced. That lost about one save in four, or made the read return the defaults. The
-        // reader pauses a millisecond between reads, far busier than anything real; with no pause
-        // a Debug build keeps the file open so much that even the retries run out
+        // replaced. That lost about one save in four, or made the read return the defaults. Keep
+        // the reader's one-millisecond pause: it seems to wake the reader on the same timer ticks
+        // as Save's retries, so it collides far more than a reader that never pauses. With
+        // retries and no lock, this test still failed about one run in twenty
         [Fact]
         public void Saves_land_and_reads_never_fall_back_while_another_thread_reads()
         {

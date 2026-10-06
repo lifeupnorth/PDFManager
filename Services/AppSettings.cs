@@ -41,23 +41,31 @@ namespace PDFManager.Services
 
         public static string FilePath => Path.Combine(Folder, "settings.json");
 
+        // Windows cannot replace the file while anything has it open, so within the app (every
+        // window, and the tests running in parallel) a read and a save never overlap. Retrying
+        // alone was not enough: a reader as busy as AppSettingsTests' held the file through all
+        // ten attempts about once in four thousand saves, and that save was lost. The lock also
+        // keeps two saves from writing the same temporary file at once
+        private static readonly object FileLock = new object();
+
         public static SettingsData Load()
         {
             try
             {
-                if (File.Exists(FilePath))
+                string json;
+                lock (FileLock)
                 {
-                    // Shared for writing and deleting too, so a read while Save moves the new file
-                    // into place does not fail. A failed read means the defaults, and a caller that
-                    // changes one setting would then save those over everything else. The text is
-                    // read in one go and the file closed before parsing, because Save cannot
-                    // replace the file while it is open
-                    string json;
+                    if (!File.Exists(FilePath))
+                        return new SettingsData();
+                    // Shared for writing and deleting too, so a read while another process saves
+                    // does not fail. A failed read means the defaults, and a caller that changes
+                    // one setting would then save those over everything else. The text is read in
+                    // one go and the file closed before parsing, to hold it open as briefly as possible
                     using (var stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
                     using (var reader = new StreamReader(stream))
                         json = reader.ReadToEnd();
-                    return Repaired(JsonSerializer.Deserialize<SettingsData>(json) ?? new SettingsData());
                 }
+                return Repaired(JsonSerializer.Deserialize<SettingsData>(json) ?? new SettingsData());
             }
             catch
             {
@@ -66,8 +74,8 @@ namespace PDFManager.Services
             return new SettingsData();
         }
 
-        // Windows refuses to replace a file while it is open, even for a moment's read by another
-        // window (or a test running in parallel), so retry briefly rather than lose the save
+        // Another process can still have the file open for a moment: a second PDF Manager, or an
+        // antivirus scan. Retry briefly rather than lose the save
         private static void MoveIntoPlace(string tempPath)
         {
             for (int attempt = 1; ; attempt++)
@@ -99,11 +107,15 @@ namespace PDFManager.Services
         {
             try
             {
-                Directory.CreateDirectory(Folder);
-                // Write a temporary file and move it into place, so a crash cannot leave half a file
-                string tempPath = FilePath + ".tmp";
-                File.WriteAllText(tempPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
-                MoveIntoPlace(tempPath);
+                string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                lock (FileLock)
+                {
+                    Directory.CreateDirectory(Folder);
+                    // Write a temporary file and move it into place, so a crash cannot leave half a file
+                    string tempPath = FilePath + ".tmp";
+                    File.WriteAllText(tempPath, json);
+                    MoveIntoPlace(tempPath);
+                }
             }
             catch
             {
