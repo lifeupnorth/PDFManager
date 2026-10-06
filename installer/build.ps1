@@ -1,52 +1,67 @@
 <#
 .SYNOPSIS
-Builds the PDF Manager installers: one MSI per architecture, in installer\out.
+  Builds the PDF Manager installers.
 
 .DESCRIPTION
-For each architecture, publishes the app self-contained (it carries its own .NET runtime, so
-users don't need one installed), then builds an MSI from that publish with WiX 5. WiX comes
-from NuGet like the app's other packages; nothing needs installing beyond the .NET SDK.
-
-The MSI installs to Program Files\PDF Manager, adds a Start menu shortcut, and shows in
-Installed apps. A newer MSI upgrades an older one in place. The version comes from
-<Version> in PDFManager.csproj; raise it before building a release, or Windows sees the
-new MSI as the version already installed.
-
-.PARAMETER Arch
-x64, arm64, or both (the default).
+  Publishes the app self-contained for each runtime (so users don't need .NET installed)
+  and compiles one Inno Setup installer per architecture into artifacts\installers.
 
 .EXAMPLE
-.\installer\build.ps1
-
-.EXAMPLE
-.\installer\build.ps1 -Arch arm64
+  .\installer\build.ps1
+  .\installer\build.ps1 -Runtime win-arm64
 #>
 param(
-    [ValidateSet("x64", "arm64")]
-    [string[]]$Arch = @("x64", "arm64")
+    [ValidateSet('win-x64', 'win-arm64')]
+    [string[]] $Runtime = @('win-x64', 'win-arm64'),
+    [string] $Configuration = 'Release'
 )
-$ErrorActionPreference = "Stop"
 
-$repo = Resolve-Path (Join-Path $PSScriptRoot "..")
-$out = Join-Path $PSScriptRoot "out"
-New-Item -ItemType Directory -Force $out | Out-Null
+$ErrorActionPreference = 'Stop'
+$root = Split-Path $PSScriptRoot -Parent
+$artifacts = Join-Path $root 'artifacts'
+$output = Join-Path $artifacts 'installers'
 
-foreach ($a in $Arch) {
-    $publish = Join-Path $PSScriptRoot "obj\publish\win-$a\"
-    # A file left from an earlier publish would end up in the MSI
-    if (Test-Path $publish) { Remove-Item -Recurse -Force $publish }
-
-    "Publishing the app for $a..."
-    dotnet publish (Join-Path $repo "PDFManager.csproj") -c Release -r "win-$a" --self-contained -o $publish -nologo -v q | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "Publishing for $a failed." }
-
-    "Building the $a installer..."
-    $msiDir = Join-Path $PSScriptRoot "bin\$a\"
-    dotnet build (Join-Path $PSScriptRoot "PDFManager.Installer.wixproj") -c Release -p:Platform=$a "-p:AppPublishDir=$publish" -o $msiDir -nologo -v q | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "Building the $a installer failed." }
-
-    $version = (Get-Item (Join-Path $publish "PDFManager.exe")).VersionInfo.ProductVersion -replace "\+.*$", ""
-    $msi = Join-Path $out "PDFManager-$version-$a.msi"
-    Copy-Item (Join-Path $msiDir "PDFManager.msi") $msi -Force
-    "{0} ({1:N1} MB)" -f $msi, ((Get-Item $msi).Length / 1MB)
+function Invoke-Checked([string] $what, [scriptblock] $command) {
+    & $command
+    if ($LASTEXITCODE -ne 0) { throw "$what failed (exit code $LASTEXITCODE)." }
 }
+
+# The version comes from Directory.Build.props so the app and the installer always agree.
+[xml] $props = Get-Content (Join-Path $root 'Directory.Build.props')
+$version = @($props.Project.PropertyGroup.Version | Where-Object { $_ })[0]
+if (-not $version) { throw 'No <Version> in Directory.Build.props.' }
+
+# Fetch the Inno Setup compiler from NuGet.
+$innoProject = Join-Path $PSScriptRoot 'InnoSetup.csproj'
+[xml] $innoXml = Get-Content $innoProject
+$innoVersion = @($innoXml.Project.PropertyGroup.InnoSetupVersion)[0]
+Invoke-Checked 'Downloading Inno Setup' { dotnet restore $innoProject --verbosity quiet }
+$packages = (dotnet nuget locals global-packages --list) -replace '^global-packages:\s*', ''
+$iscc = Join-Path $packages.Trim() "tools.innosetup\$innoVersion\tools\ISCC.exe"
+if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc." }
+
+New-Item -ItemType Directory -Force $output | Out-Null
+
+foreach ($rid in $Runtime) {
+    $arch = $rid -replace '^win-', ''
+    $publishDir = Join-Path $artifacts "publish\$rid"
+    if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
+
+    Write-Host "Publishing PDF Manager $version for $rid..."
+    Invoke-Checked "Publishing for $rid" {
+        dotnet publish (Join-Path $root 'PDFManager.csproj') `
+            --configuration $Configuration --runtime $rid --self-contained `
+            -p:DebugType=none `
+            --output $publishDir --verbosity quiet
+    }
+
+    Write-Host "Compiling the $arch installer..."
+    Invoke-Checked "Compiling the $arch installer" {
+        & $iscc /Qp "/DAppVersion=$version" "/DArch=$arch" "/DSourceDir=$publishDir" "/O$output" `
+            (Join-Path $PSScriptRoot 'PDFManager.iss')
+    }
+}
+
+Get-ChildItem $output -Filter "PDFManager-$version-*-setup.exe" |
+    Select-Object Name, @{ Name = 'Size (MB)'; Expression = { [math]::Round($_.Length / 1MB, 1) } } |
+    Format-Table -AutoSize
