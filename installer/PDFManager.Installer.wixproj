@@ -1,0 +1,22 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <!-- Builds the MSI from a self-contained publish of the app. build.ps1 publishes the app and
+       passes its folder as AppPublishDir, once per architecture (Platform x64 or arm64).
+       WiX 5 rather than 6: 6 and later need its maintenance-fee EULA accepted to build. -->
+  <PropertyGroup>
+    <OutputName>PDFManager</OutputName>
+    <OutputType>Package</OutputType>
+    <DefineConstants>AppPublishDir=$(AppPublishDir)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+  <Target Name="CheckAppPublishDir" BeforeTargets="Build">
+    <Error Condition="'$(AppPublishDir)' == '' Or !Exists('$(AppPublishDir)PDFManager.exe')"
+           Text="AppPublishDir must be a folder with a published PDFManager.exe in it. Run installer\build.ps1 instead of building this project directly." />
+  </Target>
+
+</Project>
