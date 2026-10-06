@@ -33,9 +33,22 @@ jobs:
       - name: Test
         run: dotnet test PDFManager.sln --configuration Release
 
+      # Code signing switches on when these repository variables/secrets are set; until then
+      # they are empty and the installers are built unsigned. See installer/signing.ps1.
       - name: Build installers
         shell: pwsh
         run: ./installer/build.ps1
+        env:
+          # Azure Artifact Signing (formerly Trusted Signing)
+          SIGN_ARTIFACT_ENDPOINT: ${{ vars.SIGN_ARTIFACT_ENDPOINT }}
+          SIGN_ARTIFACT_ACCOUNT: ${{ vars.SIGN_ARTIFACT_ACCOUNT }}
+          SIGN_ARTIFACT_PROFILE: ${{ vars.SIGN_ARTIFACT_PROFILE }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          # Or a .pfx certificate, base64-encoded
+          SIGN_CERT_PFX_BASE64: ${{ secrets.SIGN_CERT_PFX_BASE64 }}
+          SIGN_CERT_PASSWORD: ${{ secrets.SIGN_CERT_PASSWORD }}
 
       - uses: actions/upload-artifact@v7
         with:
@@ -49,6 +62,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $files = (Get-ChildItem artifacts/installers/*.exe).FullName
-          # The installers section from release-notes.md, then GitHub's generated changelog
-          $notes = (Get-Content .github/release-notes.md -Raw -Encoding utf8).Replace('{version}', $env:GITHUB_REF_NAME.TrimStart('v'))
+          # The installers section from release-notes.md, then GitHub's generated changelog. Its
+          # SmartScreen warning is only true of unsigned installers, so it goes once all are signed
+          $signed = @($files | Where-Object { (Get-AuthenticodeSignature $_).Status -ne 'Valid' }).Count -eq 0
+          $lines = Get-Content .github/release-notes.md -Encoding utf8 | Where-Object { -not ($signed -and $_ -match '<!-- unsigned only -->') }
+          $notes = (($lines -join "`n") -replace ' *<!-- unsigned only -->', '').Replace('{version}', $env:GITHUB_REF_NAME.TrimStart('v'))
           gh release create $env:GITHUB_REF_NAME @files --title "PDF Manager $env:GITHUB_REF_NAME" --notes $notes --generate-notes
