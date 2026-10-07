@@ -35,8 +35,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 $presets = @{
-    # Every tool flow that goes through real dialogs, then the theme switch
-    smoke = "split_open,split_run,merge_open,merge_saveas,merge_run,rotate_flow,batch_flow,theme_light"
+    # Every tool flow that goes through real dialogs, the sidebar's fit, then the theme switch
+    smoke = "split_open,split_run,merge_open,merge_saveas,merge_run,rotate_flow,batch_flow,reorder_flow,sidebar_fits,theme_light"
     # Page previews released before exit: crashed in the graphics driver before the fix
     exit  = "split_load,gc"
     # An exception on the UI thread, then a tool flow to show the app kept working

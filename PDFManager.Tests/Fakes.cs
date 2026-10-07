@@ -22,7 +22,11 @@ namespace PDFManager.Tests
         public Action<string, string>? Protect { get; init; }
         public Action<string, string>? Unlock { get; init; }
         public Action<string, string>? Watermark { get; init; }
+        public Action<string, string>? Reorder { get; init; }
         public Action<IList<string>, string>? CreateFromImages { get; init; }
+
+        // The page order the last ReorderPages call was given
+        public IReadOnlyList<int>? ReorderedPages { get; private set; }
 
         public int GetPageCount(string path) => PageCount(path);
         public string GetSplitDestPattern(string sourcePath) =>
@@ -31,6 +35,11 @@ namespace PDFManager.Tests
         public void MergePdfs(string outputPath, List<string> sourceFiles) => (Merge ?? throw new NotSupportedException())(outputPath, sourceFiles);
         public void RotatePdf(string sourcePath, string outputPath, string? pageSpec, int degrees) => (Rotate ?? throw new NotSupportedException())(sourcePath, outputPath);
         public void ExtractPages(string sourcePath, string outputPath, string pageSpec) => (Extract ?? throw new NotSupportedException())(sourcePath, outputPath);
+        public void ReorderPages(string sourcePath, string outputPath, IReadOnlyList<int> pageOrder)
+        {
+            ReorderedPages = pageOrder;
+            (Reorder ?? throw new NotSupportedException())(sourcePath, outputPath);
+        }
         public PdfMetadata ReadMetadata(string path) => Metadata(path);
         public void WriteMetadata(string sourcePath, string outputPath, PdfMetadata metadata) => (SaveMetadata ?? throw new NotSupportedException())(sourcePath, outputPath);
         public PdfProtection GetProtection(string path) => Protection(path);

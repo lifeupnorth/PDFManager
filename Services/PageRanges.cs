@@ -55,11 +55,15 @@ namespace PDFManager.Services
         }
 
         // 1, 2, 3, 5, 7, 8 becomes "1-3, 5, 7-8"
-        public static string Format(IEnumerable<int> pages)
+        public static string Format(IEnumerable<int> pages) => FormatSequence(pages.Distinct().OrderBy(p => p));
+
+        // Pages in the order given, with ascending runs shortened: 3, 1, 2, 4, 5, 6 becomes "3, 1-2, 4-6".
+        // For describing a new page order, where Format would sort it away
+        public static string FormatSequence(IEnumerable<int> pages)
         {
             var runs = new List<string>();
             int start = -1, previous = -1;
-            foreach (int page in pages.Distinct().OrderBy(p => p))
+            foreach (int page in pages)
             {
                 if (start < 0)
                     start = page;

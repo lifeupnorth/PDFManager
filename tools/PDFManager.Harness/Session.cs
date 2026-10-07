@@ -44,11 +44,15 @@ namespace PDFManager.Harness
                 ["merge_run"] = ("Merge: the same-path warning, overwrite No, then Yes", MergeRun),
                 ["rotate_flow"] = ("Rotate: Open, Save As, overwrite No, then Yes, then the success prompt", RotateFlow),
                 ["batch_flow"] = ("Batch: pick both PDFs in the Open dialog, run, answer the summary", BatchFlow),
+                ["reorder_flow"] = ("Reorder: Open, press page 4 and Move to start, overwrite No, then Yes, then the success prompt", ReorderFlow),
                 ["crash_ui"] = ("throw on the UI thread: App logs it, shows the error and keeps running", CrashOnUiThread),
                 ["theme_light"] = ("switch to the light theme with ThemeManager.Apply", ThemeLight),
                 ["theme_ui"] = ("switch to the light theme through Home's appearance choice", ThemeThroughHome),
                 ["nav_home"] = ("open the Home page", () => Open("navHome")),
                 ["nav_split"] = ("open the Split page", () => Open("navSplit")),
+                ["nav_reorder"] = ("open the Reorder page", () => Open("navReorder")),
+                ["screenshot"] = ("save what the window shows as a PNG next to the report", Screenshot),
+                ["sidebar_fits"] = ("every sidebar entry fits without scrolling at the default window size, all sections expanded", SidebarFits),
                 ["gc"] = ("force a full garbage collection", CollectGarbage),
             };
         }
@@ -224,7 +228,66 @@ namespace PDFManager.Harness
             _report.Check(Pdfs.PageCount(Path.Combine(_folder, "a_rotated.pdf")) == 4 && Pdfs.PageCount(Path.Combine(_folder, "b_rotated.pdf")) == 2, "Batch: both files rotated");
         }
 
+        // --- Reorder ---
+
+        private async Task ReorderFlow()
+        {
+            await Open("navReorder");
+            // Each page has its own width, so the saved order can be read back
+            string source = Pdfs.CreateWithWidths(Path.Combine(_folder, "c.pdf"), 300, 301, 302, 303);
+            _dialogs.Expect("Open dialog (Reorder)", (title, _) => title == "Open", Answer.FileName(source));
+            await Ui.ClickAsync(_window, _vm.Reorder.OpenFileCommand);
+            await WaitFor(() => _vm.Reorder.SourcePath == source && _vm.Reorder.PageCountInfo == "Document has 4 pages.", "Reorder: the picked file is read");
+            await _vm.Reorder.Thumbnails.Loading;
+            _report.Check(_vm.Reorder.Thumbnails.Pages.Count == 4 && _vm.Reorder.Thumbnails.Pages.All(p => p.Image != null), "Reorder: 4 page previews rendered");
+
+            await Ui.ClickNamedAsync(_window, "Page 4");
+            await WaitFor(() => _vm.Reorder.Thumbnails.SelectedPages.SequenceEqual(new[] { 4 }), "Reorder: pressing page 4 selects it");
+            await Ui.ClickAsync(_window, _vm.Reorder.MoveToStartCommand);
+            await WaitFor(() => _vm.Reorder.OrderSummary == "New order: 4, 1-3", "Reorder: Move to start puts page 4 first");
+
+            string output = Path.Combine(_folder, "c_reordered.pdf");
+            _report.Check(_vm.Reorder.OutputPath == output, "Reorder: the output defaults to c_reordered.pdf");
+            File.WriteAllText(output, "keep me");
+            _dialogs.Expect("Reorder overwrite -> No", (title, _) => title == "Confirm Overwrite", Answer.Button(Answer.IDNO));
+            await Ui.ClickAsync(_window, _vm.Reorder.RunReorderCommand);
+            await _dialogs.AllHandled();
+            _report.Check(File.ReadAllText(output) == "keep me", "Reorder: No keeps the existing output");
+
+            _dialogs.Expect("Reorder overwrite -> Yes", (title, _) => title == "Confirm Overwrite", Answer.Button(Answer.IDYES));
+            _dialogs.Expect("Reorder success -> No", (title, text) => title == "Success" && text.StartsWith("Pages reordered successfully!"), Answer.Button(Answer.IDNO));
+            await Ui.ClickAsync(_window, _vm.Reorder.RunReorderCommand);
+            await _dialogs.AllHandled();
+            await WaitFor(() => !_vm.Reorder.IsBusy, "Reorder: idle again");
+            _report.Check(Pdfs.PageWidths(output).SequenceEqual(new float[] { 303, 300, 301, 302 }), "Reorder: Yes writes the pages in the new order");
+        }
+
         // --- App-wide ---
+
+        private async Task Screenshot()
+        {
+            await Ui.Idle();
+            string path = _report.SiblingPath($"shot{++_screenshots}.png");
+            Ui.SaveScreenshot(_window, path);
+            _report.Log("screenshot: " + path);
+        }
+
+        private int _screenshots;
+
+        // The sidebar scrolls when it has to, but at the window's default size every tool should
+        // show at once. Adding a tool takes about 34 px, so this says how much room is left
+        private async Task SidebarFits()
+        {
+            var sidebar = _vm.Sidebar;
+            sidebar.OrganizeExpanded = sidebar.EditExpanded = sidebar.SecurityExpanded = sidebar.ConvertExpanded = sidebar.BatchExpanded = true;
+            _window.WindowState = System.Windows.WindowState.Normal;
+            _window.Width = 1100;
+            _window.Height = 720;
+            await Ui.Idle();
+            var nav = Ui.ScrollViewerOf((System.Windows.FrameworkElement)_window.FindName("navHome"));
+            _report.Log($"sidebar: content {nav.ExtentHeight:0} px, room {nav.ViewportHeight:0} px");
+            _report.Check(nav.ScrollableHeight <= 0, $"the sidebar fits at 1100x720 ({nav.ViewportHeight - nav.ExtentHeight:0} px to spare)");
+        }
 
         private async Task CrashOnUiThread()
         {

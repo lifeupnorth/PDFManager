@@ -56,6 +56,7 @@ namespace PDFManager.Tests
         [InlineData(1, "Organize")]
         [InlineData(2, "Organize")]
         [InlineData(4, "Organize")]
+        [InlineData(12, "Organize")]
         [InlineData(3, "Edit")]
         [InlineData(5, "Edit")]
         [InlineData(8, "Edit")]

@@ -30,7 +30,7 @@ namespace PDFManager.ViewModels
         {
             switch (toolIndex)
             {
-                case 1 or 2 or 4: OrganizeExpanded = true; break;      // Split, Merge, Extract
+                case 1 or 2 or 4 or 12: OrganizeExpanded = true; break; // Split, Merge, Extract, Reorder
                 case 3 or 5 or 8: EditExpanded = true; break;          // Rotate, Metadata, Watermark
                 case 6 or 7: SecurityExpanded = true; break;           // Protect, Unlock
                 case 10 or 11: ConvertExpanded = true; break;          // PDF to image, Image to PDF

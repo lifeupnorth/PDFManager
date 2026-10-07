@@ -13,6 +13,8 @@ namespace PDFManager.Services
         // A null pageSpec rotates every page
         void RotatePdf(string sourcePath, string outputPath, string? pageSpec, int degrees);
         void ExtractPages(string sourcePath, string outputPath, string pageSpec);
+        // pageOrder lists every page number once, in the new order
+        void ReorderPages(string sourcePath, string outputPath, IReadOnlyList<int> pageOrder);
         PdfMetadata ReadMetadata(string path);
         void WriteMetadata(string sourcePath, string outputPath, PdfMetadata metadata);
         PdfProtection GetProtection(string path);

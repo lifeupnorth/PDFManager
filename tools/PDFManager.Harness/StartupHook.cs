@@ -95,6 +95,9 @@ namespace PDFManager.Harness
 
         public Report(string path) => _path = path;
 
+        // A file next to the report, named after it: <report>-<name>
+        public string SiblingPath(string name) => Path.Combine(Path.GetDirectoryName(_path)!, Path.GetFileNameWithoutExtension(_path) + "-" + name);
+
         public int Failures { get; private set; }
 
         public void Log(string line)

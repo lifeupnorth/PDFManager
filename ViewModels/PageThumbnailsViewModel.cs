@@ -57,9 +57,19 @@ namespace PDFManager.ViewModels
             }
         }
 
+        // Reorder marks where dragged pages will land: just before or just after this page
+        private DropSide _dropMarker;
+        public DropSide DropMarker
+        {
+            get => _dropMarker;
+            set => SetProperty(ref _dropMarker, value);
+        }
+
         public string AccessibleName =>
             $"Page {PageNumber}" + (IsSelected ? ", selected" : "") + (IsSplitAfter ? ", split after this page" : "");
     }
+
+    public enum DropSide { None, Before, After }
 
     /// <summary>
     /// Page thumbnails for the selected file. Each tool decides what a click on a page means,

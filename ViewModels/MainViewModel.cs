@@ -17,6 +17,7 @@ namespace PDFManager.ViewModels
         public BatchViewModel Batch { get; }
         public PdfToImageViewModel PdfToImage { get; }
         public ImagesToPdfViewModel ImagesToPdf { get; }
+        public ReorderViewModel Reorder { get; }
         public HomeViewModel HomeView { get; }
         public SidebarViewModel Sidebar { get; } = new SidebarViewModel();
 
@@ -41,6 +42,7 @@ namespace PDFManager.ViewModels
             Batch = new BatchViewModel(pdfService, dialogs);
             PdfToImage = new PdfToImageViewModel(pdfService, pageRenderer, dialogs);
             ImagesToPdf = new ImagesToPdfViewModel(pdfService, dialogs);
+            Reorder = new ReorderViewModel(pdfService, pageRenderer, dialogs);
             HomeView = new HomeViewModel(new AppearanceViewModel(applyTheme));
             _currentView = HomeView;
         }

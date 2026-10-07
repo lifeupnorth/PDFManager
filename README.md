@@ -2,7 +2,7 @@
 
 # PDF Manager
 
-A Windows desktop app for everyday PDF jobs: merge, split, extract and rotate pages, edit metadata, add a watermark, add or remove a password, convert between PDFs and images, and run any of these on many files at once. Everything happens on your computer; files are never uploaded anywhere.
+A Windows desktop app for everyday PDF jobs: merge, split, extract, reorder and rotate pages, edit metadata, add a watermark, add or remove a password, convert between PDFs and images, and run any of these on many files at once. Everything happens on your computer; files are never uploaded anywhere.
 
 ## Features
 
@@ -10,6 +10,7 @@ A Windows desktop app for everyday PDF jobs: merge, split, extract and rotate pa
 - **Merge PDF:** combine several PDFs in the order you list them. Each source file becomes a bookmark in the result. Password-protected or damaged files are skipped with a note saying why.
 - **Split PDF:** split a PDF into two after a page you type or click on its thumbnail. Writes `<name>_part1.pdf` and `<name>_part2.pdf`.
 - **Extract pages:** copy chosen pages into a new PDF.
+- **Reorder pages:** drag pages into a new order, or select pages and move them to the start, the end, or one place at a time. Reverse the whole document or reset to the original order. Bookmarks, links, form fields and document properties come along with their pages.
 
 **Edit**
 - **Rotate PDF:** rotate all pages or chosen ones by 90° either way or 180°. The thumbnails show the result before you save.

@@ -35,7 +35,7 @@ A run fails when any check fails, the exit code isn't 0, or Windows logged a cra
 
 | Preset | Steps |
 |---|---|
-| `smoke` (default) | `split_open,split_run,merge_open,merge_saveas,merge_run,rotate_flow,batch_flow,theme_light` |
+| `smoke` (default) | `split_open,split_run,merge_open,merge_saveas,merge_run,rotate_flow,batch_flow,reorder_flow,sidebar_fits,theme_light` |
 | `exit` | `split_load,gc`. Before the fix in `WindowsPageRenderer`, this crashed in the Qualcomm graphics driver at exit. |
 | `crash` | `crash_ui,rotate_flow` |
 
@@ -49,10 +49,13 @@ A run fails when any check fails, the exit code isn't 0, or Windows logged a cra
 | `merge_run` | Merge: the same-path warning, overwrite No, then Yes |
 | `rotate_flow` | Rotate: Open, Save As, overwrite No, then Yes, then the success prompt |
 | `batch_flow` | Batch: pick both PDFs in the Open dialog, run, answer the summary |
+| `reorder_flow` | Reorder: Open, press page 4's thumbnail and Move to start, overwrite No, then Yes, then the success prompt; checks the saved page order |
+| `sidebar_fits` | Every sidebar entry fits without scrolling at the default 1100x720, all sections expanded. Logs the room left: a new tool needs about 32 px |
 | `crash_ui` | Throw on the UI thread: App logs it, shows the error and keeps running |
 | `theme_light` | Switch to the light theme with `ThemeManager.Apply` |
 | `theme_ui` | Switch to the light theme through Home's appearance choice |
-| `nav_home`, `nav_split` | Open that page |
+| `nav_home`, `nav_split`, `nav_reorder` | Open that page |
+| `screenshot` | Save what the window shows (its WPF content, without the title bar) as `<report>-shotN.png` next to the report |
 | `gc` | Force a full garbage collection |
 | `idle` | Wait three seconds |
 
@@ -61,7 +64,7 @@ A misspelled step fails the run and lists the real ones.
 ## What it can't do
 
 - **Folder pickers:** typing a path and pressing OK in the folder dialog navigates into the folder instead of choosing it. Check Batch's and PDF to image's Browse by hand.
-- **Drag and drop:** it needs real mouse input.
+- **Drag and drop:** it needs real mouse input. That includes dragging pages in Reorder; the unit tests cover where dropped pages land (`ReorderViewModel.MovePages`), but not the dragging itself.
 - **Timing:** a property change re-checks the commands' CanExecute at Background priority, so press buttons through `Ui.ClickAsync`, which waits for the dispatcher to go idle first. A button pressed before that may still be disabled, and Invoke then throws `ElementNotEnabledException`. This is not an app bug.
 
 ## Adding a step

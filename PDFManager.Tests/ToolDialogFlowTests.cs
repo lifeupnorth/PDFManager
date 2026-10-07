@@ -9,8 +9,8 @@ using PDFManager.ViewModels;
 
 namespace PDFManager.Tests
 {
-    // The run, open and browse paths of the six tools that turn one PDF into another: Rotate,
-    // Extract, Watermark, Properties, Protect and Unlock, checked through FakeDialogService.
+    // The run, open and browse paths of the seven tools that turn one PDF into another: Rotate,
+    // Extract, Reorder, Watermark, Properties, Protect and Unlock, checked through FakeDialogService.
     // They share one shape, so each behaviour is a theory over the tools, and what only one tool
     // does is tested on its own at the end. Some paths write to ErrorLog, so this class shares
     // the ErrorLog.Folder redirect (and its collection) with ErrorLogTests.
@@ -62,6 +62,7 @@ namespace PDFManager.Tests
         {
             ["Rotate"] = new Texts("PDF rotated successfully!", "Error rotating PDF", "This PDF is password-protected and cannot be rotated.", "_rotated"),
             ["Extract"] = new Texts("Pages extracted successfully!", "Error extracting pages", "This PDF is password-protected and pages cannot be extracted from it.", "_extracted"),
+            ["Reorder"] = new Texts("Pages reordered successfully!", "Error reordering pages", "This PDF is password-protected and its pages cannot be reordered.", "_reordered"),
             ["Watermark"] = new Texts("Watermark added successfully!", "Error adding watermark", "This PDF is password-protected and cannot be watermarked.", "_watermarked"),
             ["Metadata"] = new Texts("Properties saved successfully!", "Error saving properties", "This PDF is password-protected and its properties cannot be changed.", "_edited"),
             ["Protect"] = new Texts("PDF protected successfully!", "Error protecting PDF", null, "_protected"),
@@ -89,6 +90,20 @@ namespace PDFManager.Tests
                 {
                     var vm = new ExtractViewModel(new FakePdfService { Extract = work }, new FakePageRenderer(), _dialogs) { PageSpec = "1" };
                     return new Tool(vm.ExtractAsync, () => vm.IsBusy, () => vm.SourcePath, s => vm.SourcePath = s,
+                        () => vm.OutputPath, o => vm.OutputPath = o, vm.OpenFileCommand, vm.BrowseOutputCommand);
+                }
+                case "Reorder":
+                {
+                    var vm = new ReorderViewModel(new FakePdfService { Reorder = work }, new FakePageRenderer(), _dialogs);
+                    // The order comes from the page thumbnails and must differ from the original,
+                    // so a run loads them and reverses the pages first
+                    async Task Run()
+                    {
+                        await vm.Thumbnails.LoadAsync(vm.SourcePath);
+                        vm.Reverse();
+                        await vm.ReorderAsync();
+                    }
+                    return new Tool(Run, () => vm.IsBusy, () => vm.SourcePath, s => vm.SourcePath = s,
                         () => vm.OutputPath, o => vm.OutputPath = o, vm.OpenFileCommand, vm.BrowseOutputCommand);
                 }
                 case "Watermark":
@@ -129,7 +144,7 @@ namespace PDFManager.Tests
             return tool;
         }
 
-        // --- What all six do ---
+        // --- What all seven do ---
 
         [Theory]
         [MemberData(nameof(ToolsThatRefuseTheSource))]

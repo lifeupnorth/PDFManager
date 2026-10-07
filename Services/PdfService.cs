@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using iText.Forms;
 using iText.IO.Font;
@@ -160,6 +161,40 @@ namespace PDFManager.Services
                     using (var writer = new PdfWriter(tempPath, new WriterProperties().UseSmartMode()))
                     using (var resultDoc = new PdfDocument(writer))
                         sourceDoc.CopyPagesTo(pages, resultDoc, new PdfPageFormCopier());
+                }
+
+                File.Move(tempPath, outputPath, overwrite: true);
+            }
+            finally
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            }
+        }
+
+        public void ReorderPages(string sourcePath, string outputPath, IReadOnlyList<int> pageOrder)
+        {
+            // The pages move within the document rather than being copied into a new one, so
+            // bookmarks, links, form fields, tags and the document's properties all stay intact.
+            // Written to a temporary file that replaces the output only on success
+            string tempPath = outputPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var reader = new PdfReader(sourcePath))
+                using (var writer = new PdfWriter(tempPath))
+                using (var doc = new PdfDocument(reader, writer))
+                {
+                    int count = doc.GetNumberOfPages();
+                    if (pageOrder.Count != count || !pageOrder.OrderBy(p => p).SequenceEqual(Enumerable.Range(1, count)))
+                        throw new InvalidOperationException("The new order doesn't match the pages in this PDF. Please open the file again.");
+
+                    // Put each page in place from the front; the ones already placed stay put
+                    var pages = pageOrder.Select(doc.GetPage).ToList();
+                    for (int position = 1; position <= count; position++)
+                    {
+                        PdfPage page = pages[position - 1];
+                        if (doc.GetPageNumber(page) != position)
+                            doc.MovePage(page, position);
+                    }
                 }
 
                 File.Move(tempPath, outputPath, overwrite: true);
