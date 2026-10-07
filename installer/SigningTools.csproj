@@ -6,7 +6,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <WindowsSdkBuildToolsVersion>10.0.28000.2705</WindowsSdkBuildToolsVersion>
     <ArtifactSigningClientVersion>1.0.128</ArtifactSigningClientVersion>
   </PropertyGroup>

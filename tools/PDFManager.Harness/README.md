@@ -12,7 +12,7 @@ The app window is on screen for the length of a run. Don't use the mouse or keyb
 
 ## How it works
 
-`run.ps1` builds the app and the harness, then starts `bin\Debug\net9.0-windows10.0.19041.0\PDFManager.exe` with `PDFManager.Harness.dll` as a .NET startup hook (`DOTNET_STARTUP_HOOKS`). The exe itself is unchanged.
+`run.ps1` builds the app and the harness, then starts `bin\Debug\net10.0-windows10.0.19041.0\PDFManager.exe` with `PDFManager.Harness.dll` as a .NET startup hook (`DOTNET_STARTUP_HOOKS`). The exe itself is unchanged.
 
 - **Before `Main`:** the hook points `AppSettings.Folder` and `ErrorLog.Folder` at a fresh folder under `%TEMP%\PDFManager.Harness`, so your own settings and logs are never touched. `run.ps1` warns if your `settings.json` changes anyway.
 - **When the window is up:** each step runs on the UI thread. Buttons are pressed through UI Automation's Invoke, which goes through the real command binding. No mouse or keyboard input is ever sent.

@@ -3,7 +3,7 @@
 Runs the real PDFManager.exe with the harness loaded, then reports how each run went.
 
 .DESCRIPTION
-Builds the app and the harness, starts bin\<Configuration>\net9.0-windows10.0.19041.0\PDFManager.exe
+Builds the app and the harness, starts bin\<Configuration>\net10.0-windows10.0.19041.0\PDFManager.exe
 with the harness as a .NET startup hook, and waits for it to close itself. Each run gets a report
 file with a PASS or FAIL line per check, and one summary line here: the exit code, whether the
 checks passed, and any crash Windows logged for that process (Application log, event 1000).
@@ -46,7 +46,7 @@ $stepList = ($Steps -join ",")
 if ($presets.ContainsKey($stepList)) { $stepList = $presets[$stepList] }
 
 $repo = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$framework = "net9.0-windows10.0.19041.0"
+$framework = "net10.0-windows10.0.19041.0"
 $exe = if ($ExePath) { (Resolve-Path $ExePath).Path } else { Join-Path $repo "bin\$Configuration\$framework\PDFManager.exe" }
 $hook = Join-Path $PSScriptRoot "bin\$Configuration\$framework\PDFManager.Harness.dll"
 
