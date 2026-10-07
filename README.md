@@ -1,3 +1,5 @@
+<img src="PDFManager-256.png" width="96" alt="PDF Manager icon" align="right">
+
 # PDF Manager
 
 A Windows desktop app for everyday PDF jobs: merge, split, extract and rotate pages, edit metadata, add a watermark, add or remove a password, convert between PDFs and images, and run any of these on many files at once. Everything happens on your computer; files are never uploaded anywhere.
