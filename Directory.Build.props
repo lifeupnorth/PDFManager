@@ -6,6 +6,9 @@
        published for a dependency would break the build without any change here. -->
   <PropertyGroup>
     <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
+    <!-- WPF's Fluent theme (Application.ThemeMode), which the app uses as ScanManager does, is
+         still flagged as experimental -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
   </PropertyGroup>
 
   <!-- The app's version. The installer and the release workflow read it from here, and a

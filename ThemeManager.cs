@@ -6,26 +6,28 @@ using PDFManager.Services;
 namespace PDFManager
 {
     /// <summary>
-    /// Switches the app between its light and dark palettes while it runs. Every colour in the
-    /// XAML is a DynamicResource, so replacing the merged palette dictionary repaints everything.
-    /// With AppTheme.System the palette follows Windows' "app mode" and changes along with it.
+    /// Switches the app between light and dark while it runs. The look is WPF's Fluent theme (as in
+    /// ScanManager): setting Application.ThemeMode swaps its light and dark resources, repaints every
+    /// DynamicResource colour and recolours the title bar. With AppTheme.System, Fluent follows
+    /// Windows' "app mode" by itself.
     /// </summary>
     public static class ThemeManager
     {
-        private static AppTheme _choice = AppTheme.Dark;
+        private static AppTheme _choice = AppTheme.System;
         private static bool? _appliedDark;
 
         static ThemeManager()
         {
-            // Windows reports a change of app mode as a General preference change
+            // Windows reports a change of app mode as a General preference change. Fluent repaints
+            // on its own; this only keeps IsDark true to what is on screen
             SystemEvents.UserPreferenceChanged += (s, e) =>
             {
                 if (_choice == AppTheme.System && e.Category == UserPreferenceCategory.General)
-                    Application.Current?.Dispatcher.BeginInvoke(new Action(() => Apply(AppTheme.System)));
+                    _appliedDark = ResolveIsDark(AppTheme.System, WindowsUsesLightApps());
             };
         }
 
-        public static bool IsDark => _appliedDark ?? true;
+        public static bool IsDark => _appliedDark ?? ResolveIsDark(_choice, WindowsUsesLightApps());
 
         public static bool ResolveIsDark(AppTheme choice, bool windowsUsesLightApps) => choice switch
         {
@@ -48,42 +50,19 @@ namespace PDFManager
             }
         }
 
+        public static ThemeMode ModeFor(AppTheme choice) => choice switch
+        {
+            AppTheme.Light => ThemeMode.Light,
+            AppTheme.Dark => ThemeMode.Dark,
+            _ => ThemeMode.System
+        };
+
         public static void Apply(AppTheme choice)
         {
             _choice = choice;
-            bool dark = ResolveIsDark(choice, WindowsUsesLightApps());
-            if (dark == _appliedDark || Application.Current == null)
-                return;
-
-            // App.xaml merges exactly one dictionary: the palette
-            var palette = new ResourceDictionary
-            {
-                Source = new Uri(dark ? "/PDFManager;component/Themes/Dark.xaml" : "/PDFManager;component/Themes/Light.xaml", UriKind.Relative)
-            };
-            Application.Current.Resources.MergedDictionaries[0] = palette;
-            _appliedDark = dark;
-
-            foreach (Window window in Application.Current.Windows)
-                SetTitleBar(window, dark);
-        }
-
-        [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
-        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
-
-        // Asks DWM to draw the title bar dark or light to match. Ignored on Windows versions without it,
-        // and for windows that have no handle yet (they call this again from OnSourceInitialized)
-        public static void SetTitleBar(Window window, bool dark)
-        {
-            try
-            {
-                const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
-                var hwnd = new System.Windows.Interop.WindowInteropHelper(window).Handle;
-                if (hwnd == IntPtr.Zero)
-                    return;
-                int enabled = dark ? 1 : 0;
-                DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref enabled, sizeof(int));
-            }
-            catch { }
+            _appliedDark = ResolveIsDark(choice, WindowsUsesLightApps());
+            if (Application.Current is Application app)
+                app.ThemeMode = ModeFor(choice);
         }
     }
 }

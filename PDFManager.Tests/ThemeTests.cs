@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Windows;
 using PDFManager.Services;
 using PDFManager.ViewModels;
 
 namespace PDFManager.Tests
 {
-    // Reads the palettes and views as text, so it needs no running application
+    // Reads the views as text, and WPF's Fluent dictionaries without a running application
     public class ThemeTests
     {
         private static readonly string RepoRoot = FindRepoRoot();
@@ -23,26 +25,46 @@ namespace PDFManager.Tests
 
         private static string Read(string relativePath) => File.ReadAllText(Path.Combine(RepoRoot, relativePath));
 
-        private static Dictionary<string, string> Palette(string name) =>
-            Regex.Matches(Read($"Themes/{name}.xaml"), "x:Key=\"(\\w+)\" Color=\"(#[0-9A-Fa-f]{6})\"")
-                .ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value);
-
-        // WCAG 2 relative luminance and contrast ratio
-        private static double Luminance(string hex)
+        // Every string key in one of the Fluent theme's dictionaries ("Light" or "Dark"), merged ones included
+        private static HashSet<string> FluentKeys(string variant)
         {
-            double Channel(int i)
+            var keys = new HashSet<string>();
+            Exception? failure = null;
+            var thread = new Thread(() =>
             {
-                double c = Convert.ToInt32(hex.Substring(1 + 2 * i, 2), 16) / 255.0;
-                return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
-            }
-            return 0.2126 * Channel(0) + 0.7152 * Channel(1) + 0.0722 * Channel(2);
+                try
+                {
+                    _ = Application.Current; // its static constructor registers pack:// URIs; no application is created
+                    var theme = new ResourceDictionary
+                    {
+                        Source = new Uri($"pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.{variant}.xaml")
+                    };
+                    void Collect(ResourceDictionary dictionary)
+                    {
+                        foreach (object key in dictionary.Keys)
+                            if (key is string name)
+                                keys.Add(name);
+                        foreach (var merged in dictionary.MergedDictionaries)
+                            Collect(merged);
+                    }
+                    Collect(theme);
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+            if (failure != null)
+                throw new InvalidOperationException("Could not load the Fluent theme.", failure);
+            return keys;
         }
 
-        private static double Contrast(string a, string b)
-        {
-            double la = Luminance(a), lb = Luminance(b);
-            return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
-        }
+        // The keys the app's own XAML defines
+        private static HashSet<string> OwnKeys() =>
+            Regex.Matches(Read("App.xaml") + Read("MainWindow.xaml"), "x:Key=\"(\\w+)\"").Select(m => m.Groups[1].Value).ToHashSet();
 
         [Theory]
         [InlineData(AppTheme.Dark, true, true)]
@@ -57,103 +79,51 @@ namespace PDFManager.Tests
         }
 
         [Fact]
-        public void Both_palettes_define_the_same_colours()
+        public void Each_choice_sets_the_matching_Fluent_theme_mode()
         {
-            Assert.Equal(Palette("Dark").Keys.OrderBy(k => k), Palette("Light").Keys.OrderBy(k => k));
+            Assert.Equal(ThemeMode.System, ThemeManager.ModeFor(AppTheme.System));
+            Assert.Equal(ThemeMode.Light, ThemeManager.ModeFor(AppTheme.Light));
+            Assert.Equal(ThemeMode.Dark, ThemeManager.ModeFor(AppTheme.Dark));
+        }
+
+        [Fact]
+        public void The_app_starts_from_the_Fluent_theme()
+        {
+            Assert.Contains("Source=\"pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.xaml\"", Read("App.xaml"));
+        }
+
+        [Theory]
+        [InlineData("App.xaml", "Light")]
+        [InlineData("App.xaml", "Dark")]
+        [InlineData("MainWindow.xaml", "Light")]
+        [InlineData("MainWindow.xaml", "Dark")]
+        public void Views_use_only_colours_and_styles_that_exist(string view, string variant)
+        {
+            // A misspelt DynamicResource fails silently: the control just goes without
+            var known = FluentKeys(variant);
+            known.UnionWith(OwnKeys());
+            var dynamicKeys = Regex.Matches(Read(view), @"\{DynamicResource (\w+)\}").Select(m => m.Groups[1].Value).Distinct().ToList();
+            Assert.NotEmpty(dynamicKeys);
+            Assert.All(dynamicKeys, key => Assert.Contains(key, known));
         }
 
         [Theory]
         [InlineData("App.xaml")]
         [InlineData("MainWindow.xaml")]
-        public void Views_use_palette_colours_dynamically_and_only_ones_that_exist(string view)
+        public void Theme_colours_are_looked_up_dynamically(string view)
         {
             string xaml = Read(view);
-            var palette = Palette("Dark").Keys.ToHashSet();
 
-            var dynamicKeys = Regex.Matches(xaml, @"\{DynamicResource (\w+)\}").Select(m => m.Groups[1].Value).ToHashSet();
-            Assert.NotEmpty(dynamicKeys);
-            Assert.All(dynamicKeys, key => Assert.Contains(key, palette));
+            // A StaticResource is resolved once, at load, and would miss every later theme switch
+            var fluent = FluentKeys("Dark");
+            var staticThemeKeys = Regex.Matches(xaml, @"\{StaticResource (\w+)\}").Select(m => m.Groups[1].Value)
+                .Where(key => fluent.Contains(key) && key.EndsWith("Brush")).ToList();
+            Assert.Empty(staticThemeKeys);
 
-            // A StaticResource would be resolved once, at load, and miss every later theme switch
-            var staticPaletteKeys = Regex.Matches(xaml, @"\{StaticResource (\w+)\}").Select(m => m.Groups[1].Value).Where(palette.Contains).ToList();
-            Assert.Empty(staticPaletteKeys);
-
-            // Colours written straight into the views would not change with the theme either.
-            // White is allowed: it is only used on the red accent, in both themes
+            // Colours written straight into the views would not change with the theme either. White
+            // is allowed for paper: page previews are white in both themes, as in ScanManager
             var literals = Regex.Matches(xaml, "(?:Foreground|Background|Fill|Stroke|BorderBrush|Value)=\"(#[0-9A-Fa-f]{3,8})\"").Select(m => m.Groups[1].Value).ToList();
             Assert.Equal(view == "MainWindow.xaml" ? new[] { "#737373" } : Array.Empty<string>(), literals); // the watermark preview's grey text
-        }
-
-        [Theory]
-        [InlineData("Dark")]
-        [InlineData("Light")]
-        public void Text_colours_meet_WCAG_AA_contrast_on_their_backgrounds(string theme)
-        {
-            var c = Palette(theme);
-            var pairs = new (string Text, string Background)[]
-            {
-                ("TextBrush", "WindowBrush"), ("TextBrush", "SidebarBrush"), ("TextBrush", "PanelBrush"), ("TextBrush", "CardBrush"),
-                ("TextSecondaryBrush", "WindowBrush"), ("TextSecondaryBrush", "PanelBrush"), ("TextSecondaryBrush", "CardBrush"),
-                ("TextMutedBrush", "WindowBrush"), ("TextMutedBrush", "SidebarBrush"), ("TextMutedBrush", "PanelBrush"),
-                ("ErrorTextBrush", "CardBrush"), ("ErrorTextBrush", "PanelBrush"), ("SuccessBrush", "CardBrush"),
-                ("TextBrush", "AccentTintBrush")
-            };
-            Assert.All(pairs, p => Assert.True(Contrast(c[p.Text], c[p.Background]) >= 4.5,
-                $"{theme}: {p.Text} on {p.Background} is {Contrast(c[p.Text], c[p.Background]):0.00}:1"));
-            Assert.True(Contrast("#FFFFFF", c["AccentBrush"]) >= 4.0, "button text on the accent"); // 15 px semibold
-        }
-
-        [Theory]
-        [InlineData("Dark")]
-        [InlineData("Light")]
-        public void Tool_icons_stand_out_from_their_tiles(string theme)
-        {
-            var c = Palette(theme);
-            foreach (string category in new[] { "Organize", "Edit", "Security", "Batch", "Convert" })
-                Assert.True(Contrast(c[category + "IconBrush"], c[category + "TileBrush"]) >= 3,
-                    $"{theme}: {category} icon is {Contrast(c[category + "IconBrush"], c[category + "TileBrush"]):0.00}:1 on its tile");
-        }
-
-        [Theory]
-        [InlineData("Dark")]
-        [InlineData("Light")]
-        public void Scroll_bar_thumbs_stand_out_from_what_they_scroll(string theme)
-        {
-            var c = Palette(theme);
-            foreach (string background in new[] { "WindowBrush", "SidebarBrush", "PanelBrush", "CardBrush" })
-                Assert.True(Contrast(c["ScrollThumbBrush"], c[background]) >= 3,
-                    $"{theme}: the thumb is {Contrast(c["ScrollThumbBrush"], c[background]):0.00}:1 on {background}");
-        }
-
-        [Fact]
-        public void Every_scroll_bar_uses_the_themed_style()
-        {
-            // No x:Key, so WPF applies it to all scroll bars, including those inside ScrollViewer templates
-            Assert.Contains("<Style TargetType=\"ScrollBar\">", Read("App.xaml"));
-        }
-
-        [Theory]
-        [InlineData("Dark")]
-        [InlineData("Light")]
-        public void Text_box_borders_show_where_to_type(string theme)
-        {
-            // The box's own fill, and the surfaces text boxes sit on
-            var c = Palette(theme);
-            foreach (string surface in new[] { "InputBrush", "PanelBrush", "WindowBrush", "CardBrush" })
-                Assert.True(Contrast(c["InputBorderBrush"], c[surface]) >= 3,
-                    $"{theme}: the text box border is {Contrast(c["InputBorderBrush"], c[surface]):0.00}:1 against {surface}");
-        }
-
-        [Fact]
-        public void Text_and_password_boxes_use_the_input_border()
-        {
-            string app = Read("App.xaml");
-            foreach (string style in new[] { "Input", "PasswordInput" })
-            {
-                int start = app.IndexOf($"<Style x:Key=\"{style}\"", StringComparison.Ordinal);
-                string block = app.Substring(start, app.IndexOf("</Style>", start, StringComparison.Ordinal) - start);
-                Assert.Contains("{DynamicResource InputBorderBrush}", block);
-            }
         }
     }
 
@@ -175,9 +145,9 @@ namespace PDFManager.Tests
         }
 
         [Fact]
-        public void Dark_is_the_default_so_the_app_looks_as_it_always_did()
+        public void The_default_follows_Windows_as_ScanManager_does()
         {
-            Assert.Equal(AppTheme.Dark, new AppearanceViewModel(_applied.Add).Theme);
+            Assert.Equal(AppTheme.System, new AppearanceViewModel(_applied.Add).Theme);
             Assert.Empty(_applied);
         }
 
@@ -209,11 +179,11 @@ namespace PDFManager.Tests
         [Theory]
         [InlineData("Purple")]
         [InlineData("7")]
-        public void An_unknown_stored_theme_falls_back_to_dark(string stored)
+        public void An_unknown_stored_theme_falls_back_to_following_Windows(string stored)
         {
             AppSettings.Save(new SettingsData { Theme = stored });
 
-            Assert.Equal(AppTheme.Dark, new AppearanceViewModel(_applied.Add).Theme);
+            Assert.Equal(AppTheme.System, new AppearanceViewModel(_applied.Add).Theme);
         }
     }
 }

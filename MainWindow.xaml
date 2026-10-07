@@ -4,12 +4,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:PDFManager.ViewModels"
+        xmlns:services="clr-namespace:PDFManager.Services"
         xmlns:local="clr-namespace:PDFManager"
         mc:Ignorable="d"
         Title="PDF Manager" Height="720" Width="1100" MinHeight="600" MinWidth="900"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource WindowBrush}"
-        FontFamily="Segoe UI" FontSize="14"
         UseLayoutRounding="True"
         Icon="app.ico">
     <Window.Resources>
@@ -21,11 +20,17 @@
         <local:RadioValueConverter x:Key="RadioValue"/>
         <local:EqualsToVisibilityConverter x:Key="EqualsToVisibility"/>
 
+        <!-- Options are the stock radio buttons, narrow enough for two or three side by side -->
+        <Style TargetType="RadioButton" BasedOn="{StaticResource {x:Type RadioButton}}">
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+
         <!-- Path label: single line, trimmed with an ellipsis -->
         <Style x:Key="PathLabel" TargetType="Label" BasedOn="{StaticResource ValueLabel}">
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Margin" Value="0,3,0,0"/>
+            <Setter Property="Margin" Value="0,2,0,0"/>
             <Setter Property="ContentTemplate">
                 <Setter.Value>
                     <DataTemplate>
@@ -35,12 +40,51 @@
             </Setter>
         </Style>
 
+        <!-- The file a one-PDF tool is working on, with a button to pick another. The DataContext is
+             the tool's view model; every one of them has SourcePath and OpenFileCommand -->
+        <DataTemplate x:Key="SelectedFileTemplate">
+            <StackPanel>
+                <TextBlock Text="Selected file" Style="{StaticResource FieldLabel}" Margin="0,0,0,6"/>
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Left" Text="{StaticResource GlyphPdf}" Style="{StaticResource Icon}" FontSize="28"
+                                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" Margin="0,0,14,0"/>
+                        <Button DockPanel.Dock="Right" Content="Change file" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource IconButton}"
+                                VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
+                            <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+                <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" Margin="0,8,0,0"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- The dashed drop area a tool shows until it has a file -->
+        <Style x:Key="DropArea" TargetType="Rectangle">
+            <Setter Property="RadiusX" Value="8"/>
+            <Setter Property="RadiusY" Value="8"/>
+            <Setter Property="Stroke" Value="{DynamicResource ControlStrongStrokeColorDefaultBrush}"/>
+            <Setter Property="StrokeDashArray" Value="4 3"/>
+            <Setter Property="StrokeThickness" Value="1"/>
+        </Style>
+
+        <Style x:Key="DropAreaIcon" TargetType="TextBlock" BasedOn="{StaticResource CardIcon}">
+            <Setter Property="FontSize" Value="40"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+
+        <Style x:Key="DropAreaHint" TargetType="TextBlock" BasedOn="{StaticResource Hint}">
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,14,0,0"/>
+        </Style>
+
         <!-- Row template for a file in the merge list -->
         <DataTemplate x:Key="MergeFileTemplate">
             <DockPanel>
-                <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource FileTileBrush}" Width="38" Height="38" Margin="0,0,14,0">
-                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource OrganizeIconBrush}" Width="18" Height="18" Stretch="Uniform" StrokeThickness="2"/>
-                </Border>
+                <TextBlock DockPanel.Dock="Left" Text="{StaticResource GlyphPdf}" Style="{StaticResource Icon}" FontSize="24"
+                           Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" Margin="0,0,14,0"/>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Style="{StaticResource FileName}" Text="{Binding Converter={StaticResource FileNameConverter}}"/>
                     <TextBlock Style="{StaticResource FilePath}" Text="{Binding}"/>
@@ -51,7 +95,7 @@
         <!-- Page thumbnails for a tool's selected file -->
         <DataTemplate DataType="{x:Type vm:PageThumbnailsViewModel}">
             <StackPanel>
-                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Hint}" TextAlignment="Left" Visibility="{Binding StatusText, Converter={StaticResource NotEmptyToVisibility}}"/>
+                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Hint}" Visibility="{Binding StatusText, Converter={StaticResource NotEmptyToVisibility}}"/>
                 <ItemsControl ItemsSource="{Binding Pages}" Focusable="False">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -71,22 +115,21 @@
         <!-- Row template for a file in the batch list: name, folder and the outcome of the last run -->
         <DataTemplate x:Key="BatchFileTemplate">
             <DockPanel>
-                <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource BatchTileBrush}" Width="38" Height="38" Margin="0,0,14,0">
-                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource BatchIconBrush}" Width="18" Height="18" Stretch="Uniform" StrokeThickness="2"/>
-                </Border>
+                <TextBlock DockPanel.Dock="Left" Text="{StaticResource GlyphPdf}" Style="{StaticResource Icon}" FontSize="24"
+                           Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" Margin="0,0,14,0"/>
                 <TextBlock DockPanel.Dock="Right" Text="{Binding StatusText}" MaxWidth="280" TextWrapping="Wrap" TextAlignment="Right" VerticalAlignment="Center" Margin="14,0,0,0" FontSize="12">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Status}" Value="Done">
-                                    <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Status}" Value="Failed">
-                                    <Setter Property="Foreground" Value="{DynamicResource ErrorTextBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Status}" Value="Working">
-                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -102,10 +145,11 @@
         <!-- Row template for an image in the Image to PDF list: its preview, name and location -->
         <DataTemplate x:Key="ImageItemTemplate">
             <DockPanel>
-                <Border DockPanel.Dock="Left" Width="56" Height="56" CornerRadius="6" Background="{DynamicResource InputBrush}" Margin="0,0,14,0">
-                    <Image Source="{Binding Thumbnail}" Stretch="Uniform" Margin="4" RenderOptions.BitmapScalingMode="HighQuality"/>
+                <Border DockPanel.Dock="Left" Width="56" Height="56" CornerRadius="4" Background="White"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" Margin="0,0,14,0">
+                    <Image Source="{Binding Thumbnail}" Stretch="Uniform" Margin="3" RenderOptions.BitmapScalingMode="HighQuality"/>
                 </Border>
-                <TextBlock DockPanel.Dock="Right" Text="{Binding Details}" Foreground="{DynamicResource ErrorTextBrush}" FontSize="12" VerticalAlignment="Center" Margin="14,0,0,0"/>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding Details}" Foreground="{DynamicResource SystemFillColorCriticalBrush}" FontSize="12" VerticalAlignment="Center" Margin="14,0,0,0"/>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Style="{StaticResource FileName}" Text="{Binding FileName}"/>
                     <TextBlock Style="{StaticResource FilePath}" Text="{Binding Path}"/>
@@ -116,20 +160,21 @@
         <!-- A saved Batch preset: its name applies it, the cross deletes it. Highlighted while the
              settings match it -->
         <DataTemplate x:Key="BatchPresetTemplate">
-            <Border x:Name="chip" CornerRadius="16" BorderThickness="1" BorderBrush="{DynamicResource BorderStrongBrush}" Background="{DynamicResource CardBrush}" Margin="0,0,6,6">
+            <Border x:Name="chip" CornerRadius="16" BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}" Margin="0,0,6,6">
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="{Binding Name}" Style="{StaticResource ChipButton}" Padding="12,6,6,6" ToolTip="Apply these settings"
+                    <Button Content="{Binding Name}" Style="{StaticResource ChipButton}" Padding="12,5,6,5" ToolTip="Apply these settings"
                             Command="{Binding DataContext.ApplyPresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
                             AutomationProperties.Name="{Binding ApplyName}"/>
-                    <Button Content="×" Style="{StaticResource ChipButton}" Padding="6,6,10,6" ToolTip="Delete this preset"
+                    <Button Content="×" Style="{StaticResource ChipButton}" Padding="6,5,10,5" ToolTip="Delete this preset"
                             Command="{Binding DataContext.DeletePresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
                             AutomationProperties.Name="{Binding DeleteName}"/>
                 </StackPanel>
             </Border>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsActive}" Value="True">
-                    <Setter TargetName="chip" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                    <Setter TargetName="chip" Property="Background" Value="{DynamicResource AccentTintBrush}"/>
+                    <Setter TargetName="chip" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+                    <Setter TargetName="chip" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -137,13 +182,15 @@
         <!-- DataTemplates for ViewModels -->
         <DataTemplate DataType="{x:Type vm:HomeViewModel}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="30,26,30,30">
+                <StackPanel Margin="32,24,32,32">
                     <DockPanel>
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,4,0,0">
-                            <TextBlock Text="APPEARANCE" Style="{StaticResource SectionLabel}" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                            <RadioButton Content="System" ToolTip="Follow Windows' light or dark app mode" IsChecked="{Binding Appearance.Theme, Converter={StaticResource RadioValue}, ConverterParameter=System}" Style="{StaticResource OptionRadio}" GroupName="Theme" Width="92" Margin="0,0,6,0"/>
-                            <RadioButton Content="Light" IsChecked="{Binding Appearance.Theme, Converter={StaticResource RadioValue}, ConverterParameter=Light}" Style="{StaticResource OptionRadio}" GroupName="Theme" Width="92" Margin="0,0,6,0"/>
-                            <RadioButton Content="Dark" IsChecked="{Binding Appearance.Theme, Converter={StaticResource RadioValue}, ConverterParameter=Dark}" Style="{StaticResource OptionRadio}" GroupName="Theme" Width="92" Margin="0"/>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Theme" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <ComboBox SelectedValue="{Binding Appearance.Theme}" SelectedValuePath="Tag" Width="210" AutomationProperties.Name="Theme">
+                                <ComboBoxItem Content="Use Windows setting" Tag="{x:Static services:AppTheme.System}" ToolTip="Follow Windows' light or dark app mode"/>
+                                <ComboBoxItem Content="Light" Tag="{x:Static services:AppTheme.Light}"/>
+                                <ComboBoxItem Content="Dark" Tag="{x:Static services:AppTheme.Dark}"/>
+                            </ComboBox>
                         </StackPanel>
                         <TextBlock Text="Tools" Style="{StaticResource PageHeading}"/>
                     </DockPanel>
@@ -152,113 +199,89 @@
                     <WrapPanel>
                         <Button Style="{StaticResource ToolCard}" Tag="2" Click="OpenTool_Click" AutomationProperties.Name="Merge PDF">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource OrganizeTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconMerge}" Stroke="{DynamicResource OrganizeIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphMerge}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Merge PDF" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource ToolCard}" Tag="1" Click="OpenTool_Click" AutomationProperties.Name="Split PDF">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource OrganizeTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconSplit}" Stroke="{DynamicResource OrganizeIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphSplit}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Split PDF" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource ToolCard}" Tag="4" Click="OpenTool_Click" AutomationProperties.Name="Extract pages">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource OrganizeTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconExtract}" Stroke="{DynamicResource OrganizeIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphExtract}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Extract pages" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource ToolCard}" Tag="12" Click="OpenTool_Click" AutomationProperties.Name="Reorder pages">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource OrganizeTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconReorder}" Stroke="{DynamicResource OrganizeIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphReorder}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Reorder pages" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                     </WrapPanel>
 
-                    <TextBlock Text="Edit PDF" Style="{StaticResource CategoryHeading}" Margin="0,34,0,12"/>
+                    <TextBlock Text="Edit PDF" Style="{StaticResource CategoryHeading}"/>
                     <WrapPanel>
                         <Button Style="{StaticResource ToolCard}" Tag="3" Click="OpenTool_Click" AutomationProperties.Name="Rotate PDF">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource EditTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconRotate}" Stroke="{DynamicResource EditIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphRotate}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Rotate PDF" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource ToolCard}" Tag="5" Click="OpenTool_Click" AutomationProperties.Name="Edit metadata">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource EditTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconTag}" Stroke="{DynamicResource EditIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphTag}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Edit metadata" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource ToolCard}" Tag="8" Click="OpenTool_Click" AutomationProperties.Name="Add watermark">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource EditTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconWatermark}" Stroke="{DynamicResource EditIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphWatermark}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Add watermark" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                     </WrapPanel>
 
-                    <TextBlock Text="PDF security" Style="{StaticResource CategoryHeading}" Margin="0,34,0,12"/>
+                    <TextBlock Text="PDF security" Style="{StaticResource CategoryHeading}"/>
                     <WrapPanel>
                         <Button Style="{StaticResource ToolCard}" Tag="7" Click="OpenTool_Click" AutomationProperties.Name="Unlock PDF">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource SecurityTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconUnlock}" Stroke="{DynamicResource SecurityIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphUnlock}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Unlock PDF" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource ToolCard}" Tag="6" Click="OpenTool_Click" AutomationProperties.Name="Protect PDF">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource SecurityTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconLock}" Stroke="{DynamicResource SecurityIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphLock}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Protect PDF" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                     </WrapPanel>
 
-                    <TextBlock Text="Convert" Style="{StaticResource CategoryHeading}" Margin="0,34,0,12"/>
+                    <TextBlock Text="Convert" Style="{StaticResource CategoryHeading}"/>
                     <WrapPanel>
                         <Button Style="{StaticResource ToolCard}" Tag="10" Click="OpenTool_Click" AutomationProperties.Name="PDF to image">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource ConvertTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconImage}" Stroke="{DynamicResource ConvertIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphImage}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="PDF to image" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource ToolCard}" Tag="11" Click="OpenTool_Click" AutomationProperties.Name="Image to PDF">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource ConvertTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconImageToPdf}" Stroke="{DynamicResource ConvertIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphPdf}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Image to PDF" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
                     </WrapPanel>
 
-                    <TextBlock Text="Many files at once" Style="{StaticResource CategoryHeading}" Margin="0,34,0,12"/>
+                    <TextBlock Text="Many files at once" Style="{StaticResource CategoryHeading}"/>
                     <WrapPanel>
                         <Button Style="{StaticResource ToolCard}" Tag="9" Click="OpenTool_Click" AutomationProperties.Name="Batch processing">
                             <StackPanel>
-                                <Border Style="{StaticResource IconTile}" Background="{DynamicResource BatchTileBrush}">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconBatch}" Stroke="{DynamicResource BatchIconBrush}"/>
-                                </Border>
+                                <TextBlock Text="{StaticResource GlyphBatch}" Style="{StaticResource CardIcon}"/>
                                 <TextBlock Text="Batch processing" Style="{StaticResource CardLabel}"/>
                             </StackPanel>
                         </Button>
@@ -268,51 +291,39 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:SplitViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="splitTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="splitTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphSplit}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Split PDF" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Separate a document into two files after the page you choose." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
                         <StackPanel>
-                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                            <Border Background="{DynamicResource CardBrush}" CornerRadius="10" Padding="16,14">
-                                <DockPanel>
-                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource FileTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource OrganizeIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                    </Border>
-                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                    </StackPanel>
-                                </DockPanel>
-                            </Border>
-                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource SelectedFileTemplate}" Focusable="False"/>
 
-                            <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
-                            <TextBlock Text="Click a page to split the document after it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,0,0,12"/>
+                            <TextBlock Text="Pages" Style="{StaticResource FieldLabel}" Margin="0,22,0,2"/>
+                            <TextBlock Text="Click a page to split the document after it." Style="{StaticResource Hint}" Margin="0,0,0,12"/>
                             <ContentControl Content="{Binding Thumbnails}" Focusable="False"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunSplitCommand}">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
+                            <Button Command="{Binding RunSplitCommand}" Tag="{StaticResource GlyphSplit}">
                                 <Button.Style>
                                     <!-- Content lives in the style so the busy trigger can replace it -->
                                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -327,14 +338,14 @@
                             </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Split PDF" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Split PDF" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="SPLIT AFTER PAGE" Style="{StaticResource SectionLabel}"/>
-                                <TextBox Text="{Binding SplitPageNum, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Split after page" AutomationProperties.HelpText="{Binding PageCountInfo}" Style="{StaticResource Input}" Width="110" HorizontalAlignment="Left"/>
+                                <TextBlock Text="Split after page" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Text="{Binding SplitPageNum, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Split after page" AutomationProperties.HelpText="{Binding PageCountInfo}" Width="110" HorizontalAlignment="Left"/>
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
 
-                                <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output folder" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputFolder}" Style="{StaticResource ValueLabel}"/>
                                 <Label Style="{StaticResource HintLabel}" Content="Two files named after the source, ending in _part1 and _part2, are saved next to it."/>
                             </StackPanel>
@@ -345,51 +356,39 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:ExtractViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="extractTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="extractTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphExtract}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Extract pages" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Copy the pages you choose into a new PDF. The original is not changed." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
                         <StackPanel>
-                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                            <Border Background="{DynamicResource CardBrush}" CornerRadius="10" Padding="16,14">
-                                <DockPanel>
-                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource FileTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource OrganizeIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                    </Border>
-                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                    </StackPanel>
-                                </DockPanel>
-                            </Border>
-                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource SelectedFileTemplate}" Focusable="False"/>
 
-                            <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
-                            <TextBlock Text="Click pages to choose which ones to extract." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,0,0,12"/>
+                            <TextBlock Text="Pages" Style="{StaticResource FieldLabel}" Margin="0,22,0,2"/>
+                            <TextBlock Text="Click pages to choose which ones to extract." Style="{StaticResource Hint}" Margin="0,0,0,12"/>
                             <ContentControl Content="{Binding Thumbnails}" Focusable="False"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunExtractCommand}">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
+                            <Button Command="{Binding RunExtractCommand}" Tag="{StaticResource GlyphExtract}">
                                 <Button.Style>
                                     <!-- Content lives in the style so the busy trigger can replace it -->
                                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -404,17 +403,17 @@
                             </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Extract pages" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Extract pages" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="PAGES TO EXTRACT" Style="{StaticResource SectionLabel}"/>
-                                <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Pages to extract" AutomationProperties.HelpText="{Binding PageCountInfo}" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
+                                <TextBlock Text="Pages to extract" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Pages to extract" AutomationProperties.HelpText="{Binding PageCountInfo}" ToolTip="Example: 1, 3, 5-7"/>
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
                                 <Label Style="{StaticResource HintLabel}" Content="Pages keep their original order."/>
 
-                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output file" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
-                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                             </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
@@ -423,43 +422,31 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:ReorderViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="reorderTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="reorderTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphReorder}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Reorder pages" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Put a PDF's pages in a new order and save it as a new file. The original is not changed." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}" PreviewDragOver="reorderScroll_PreviewDragOver">
                         <StackPanel>
-                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                            <Border Background="{DynamicResource CardBrush}" CornerRadius="10" Padding="16,14">
-                                <DockPanel>
-                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource FileTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource OrganizeIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                    </Border>
-                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                    </StackPanel>
-                                </DockPanel>
-                            </Border>
-                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource SelectedFileTemplate}" Focusable="False"/>
 
-                            <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
-                            <TextBlock Text="Drag pages to a new place, or click pages to select them and use the buttons on the right. Each page keeps its original number." Style="{StaticResource Hint}" TextAlignment="Left" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                            <TextBlock Text="{Binding Thumbnails.StatusText}" Style="{StaticResource Hint}" TextAlignment="Left" Visibility="{Binding Thumbnails.StatusText, Converter={StaticResource NotEmptyToVisibility}}"/>
+                            <TextBlock Text="Pages" Style="{StaticResource FieldLabel}" Margin="0,22,0,2"/>
+                            <TextBlock Text="Drag pages to a new place, or click pages to select them and use the buttons on the right. Each page keeps its original number." Style="{StaticResource Hint}" Margin="0,0,0,12"/>
+                            <TextBlock Text="{Binding Thumbnails.StatusText}" Style="{StaticResource Hint}" Visibility="{Binding Thumbnails.StatusText, Converter={StaticResource NotEmptyToVisibility}}"/>
                             <!-- Its own strip rather than the shared one, for dragging pages -->
                             <ItemsControl ItemsSource="{Binding Thumbnails.Pages}" Focusable="False" AutomationProperties.Name="Pages in their new order"
                                           AllowDrop="True" DragOver="reorderStrip_DragOver" DragLeave="reorderStrip_DragLeave" Drop="reorderStrip_Drop">
@@ -480,10 +467,10 @@
                     </ScrollViewer>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunReorderCommand}">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
+                            <Button Command="{Binding RunReorderCommand}" Tag="{StaticResource GlyphReorder}">
                                 <Button.Style>
                                     <!-- Content lives in the style so the busy trigger can replace it -->
                                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -498,31 +485,31 @@
                             </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Reorder pages" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Reorder pages" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="MOVE SELECTED PAGES" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Move selected pages" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <Button Command="{Binding MoveToStartCommand}" Content="Move to start" Style="{StaticResource SecondaryButton}" Margin="0,0,5,8"/>
-                                    <Button Command="{Binding MoveToEndCommand}" Content="Move to end" Style="{StaticResource SecondaryButton}" Margin="5,0,0,8"/>
-                                    <Button Command="{Binding MoveEarlierCommand}" Content="Move earlier" Style="{StaticResource SecondaryButton}" Margin="0,0,5,0"/>
-                                    <Button Command="{Binding MoveLaterCommand}" Content="Move later" Style="{StaticResource SecondaryButton}" Margin="5,0,0,0"/>
+                                    <Button Command="{Binding MoveToStartCommand}" Content="Move to start" Tag="{StaticResource GlyphFirst}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Margin="0,0,4,8"/>
+                                    <Button Command="{Binding MoveToEndCommand}" Content="Move to end" Tag="{StaticResource GlyphLast}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Margin="4,0,0,8"/>
+                                    <Button Command="{Binding MoveEarlierCommand}" Content="Move earlier" Tag="{StaticResource GlyphPrevious}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Margin="0,0,4,0"/>
+                                    <Button Command="{Binding MoveLaterCommand}" Content="Move later" Tag="{StaticResource GlyphNext}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Margin="4,0,0,0"/>
                                 </UniformGrid>
                                 <Label Style="{StaticResource HintLabel}" Content="Selected pages move together."/>
 
-                                <TextBlock Text="ALL PAGES" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="All pages" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <Button Command="{Binding ReverseCommand}" Content="Reverse order" Style="{StaticResource SecondaryButton}" Margin="0,0,5,0"/>
-                                    <Button Command="{Binding ResetOrderCommand}" Content="Reset order" Style="{StaticResource SecondaryButton}" Margin="5,0,0,0"/>
+                                    <Button Command="{Binding ReverseCommand}" Content="Reverse order" Tag="{StaticResource GlyphReorder}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Margin="0,0,4,0"/>
+                                    <Button Command="{Binding ResetOrderCommand}" Content="Reset order" Tag="{StaticResource GlyphReset}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Margin="4,0,0,0"/>
                                 </UniformGrid>
 
-                                <TextBlock Text="ORDER" Style="{StaticResource SectionLabel}"/>
-                                <TextBlock Text="{Binding OrderSummary}" Foreground="{DynamicResource TextBrush}" FontSize="13" TextWrapping="Wrap" AutomationProperties.Name="Page order"/>
+                                <TextBlock Text="Order" Style="{StaticResource FieldLabel}"/>
+                                <TextBlock Text="{Binding OrderSummary}" TextWrapping="Wrap" AutomationProperties.Name="Page order"/>
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
 
-                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output file" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
-                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                             </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
@@ -531,37 +518,38 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:MergeViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="mergeTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="mergeTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding HasItems, ElementName=lstMergeFiles, Converter={StaticResource InverseBoolToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphMerge}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Merge PDF" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Combine several PDFs into a single document, in the order you want." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding AddFilesCommand}" Content="Select PDF files" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop PDFs here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding AddFilesCommand}" Content="Select PDF files" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop PDFs here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
                     <DockPanel Visibility="{Binding HasItems, ElementName=lstMergeFiles, Converter={StaticResource BoolToVisibility}}">
-                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                            <Button DockPanel.Dock="Right" Content="Add files" Style="{StaticResource SecondaryButton}" Command="{Binding AddFilesCommand}"/>
-                            <TextBlock Text="FILES TO MERGE" Style="{StaticResource SectionLabel}" VerticalAlignment="Center"/>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <Button DockPanel.Dock="Right" Content="Add files" Tag="{StaticResource GlyphAdd}" Style="{StaticResource IconButton}" Command="{Binding AddFilesCommand}"/>
+                            <TextBlock Text="Files to merge" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center"/>
                         </DockPanel>
-                        <TextBlock DockPanel.Dock="Bottom" Text="Files are merged top to bottom. Drop more PDFs anywhere on this page to add them." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,4,0,0"/>
+                        <TextBlock DockPanel.Dock="Bottom" Text="Files are merged top to bottom. Drop more PDFs anywhere on this page to add them." Style="{StaticResource Hint}" Margin="0,8,0,0"/>
                         <ListBox x:Name="lstMergeFiles" ItemsSource="{Binding MergeFiles}" SelectionMode="Extended" Style="{StaticResource FileList}" ItemTemplate="{StaticResource MergeFileTemplate}"/>
                     </DockPanel>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunMergeCommand}">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
+                            <Button Command="{Binding RunMergeCommand}" Tag="{StaticResource GlyphMerge}">
                                 <Button.Style>
                                     <!-- Content lives in the style so the busy trigger can replace it -->
                                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -576,20 +564,20 @@
                             </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Merge PDF" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Merge PDF" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="ORDER" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Order" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <Button Command="{Binding MoveUpCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstMergeFiles}" Content="Move up" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0"/>
-                                    <Button Command="{Binding MoveDownCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstMergeFiles}" Content="Move down" Style="{StaticResource SecondaryButton}" Margin="4,0,0,0"/>
+                                    <Button Command="{Binding MoveUpCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstMergeFiles}" Content="Move up" Tag="{StaticResource GlyphUp}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Margin="0,0,4,0"/>
+                                    <Button Command="{Binding MoveDownCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstMergeFiles}" Content="Move down" Tag="{StaticResource GlyphDown}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Margin="4,0,0,0"/>
                                 </UniformGrid>
-                                <Button Command="{Binding RemoveFileCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstMergeFiles}" Content="Remove selected" Style="{StaticResource SecondaryButton}" Margin="0,8,0,0" HorizontalAlignment="Stretch"/>
+                                <Button Command="{Binding RemoveFileCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstMergeFiles}" Content="Remove selected" Tag="{StaticResource GlyphDelete}" Style="{StaticResource IconButton}" Margin="0,8,0,0" HorizontalAlignment="Stretch"/>
                                 <Label Style="{StaticResource HintLabel}" Content="Select a file in the list to reorder or remove it."/>
 
-                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output file" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
-                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                             </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
@@ -598,51 +586,39 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:RotateViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="rotateTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="rotateTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphRotate}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Rotate PDF" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Rotate all pages, or only the ones you pick, and save a new copy." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
                         <StackPanel>
-                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                            <Border Background="{DynamicResource CardBrush}" CornerRadius="10" Padding="16,14">
-                                <DockPanel>
-                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource EditTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource EditIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                    </Border>
-                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                    </StackPanel>
-                                </DockPanel>
-                            </Border>
-                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource SelectedFileTemplate}" Focusable="False"/>
 
-                            <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
-                            <TextBlock Text="Click pages to rotate only those. The previews show the result." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,0,0,12"/>
+                            <TextBlock Text="Pages" Style="{StaticResource FieldLabel}" Margin="0,22,0,2"/>
+                            <TextBlock Text="Click pages to rotate only those. The previews show the result." Style="{StaticResource Hint}" Margin="0,0,0,12"/>
                             <ContentControl Content="{Binding Thumbnails}" Focusable="False"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunRotateCommand}">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
+                            <Button Command="{Binding RunRotateCommand}" Tag="{StaticResource GlyphRotate}">
                                 <Button.Style>
                                     <!-- Content lives in the style so the busy trigger can replace it -->
                                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -657,83 +633,72 @@
                             </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Rotate PDF" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Rotate PDF" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="PAGES TO ROTATE" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Pages to rotate" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <RadioButton Content="All pages" IsChecked="{Binding RotateAllPages, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="RotatePages" Margin="0,0,4,8"/>
-                                    <RadioButton Content="Specific pages" IsChecked="{Binding RotateAllPages, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="RotatePages" Margin="4,0,0,8"/>
+                                    <RadioButton Content="All pages" IsChecked="{Binding RotateAllPages, Converter={StaticResource RadioValue}, ConverterParameter=True}" GroupName="RotatePages"/>
+                                    <RadioButton Content="Specific pages" IsChecked="{Binding RotateAllPages, Converter={StaticResource RadioValue}, ConverterParameter=False}" GroupName="RotatePages"/>
                                 </UniformGrid>
-                                <TextBox Text="{Binding RotatePageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecVisible}" AutomationProperties.Name="Pages to rotate" AutomationProperties.HelpText="{Binding PageCountInfo}" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
+                                <TextBox Text="{Binding RotatePageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecVisible}" AutomationProperties.Name="Pages to rotate" AutomationProperties.HelpText="{Binding PageCountInfo}" ToolTip="Example: 1, 3, 5-7" Margin="0,4,0,0"/>
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
 
-                                <TextBlock Text="ROTATION" Style="{StaticResource SectionLabel}"/>
-                                <RadioButton Content="90° clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=90}" Style="{StaticResource OptionRadio}" GroupName="RotateAngle"/>
-                                <RadioButton Content="180°" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=180}" Style="{StaticResource OptionRadio}" GroupName="RotateAngle"/>
-                                <RadioButton Content="90° counter-clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=270}" Style="{StaticResource OptionRadio}" GroupName="RotateAngle"/>
+                                <TextBlock Text="Rotation" Style="{StaticResource FieldLabel}"/>
+                                <RadioButton Content="90° clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=90}" GroupName="RotateAngle"/>
+                                <RadioButton Content="180°" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=180}" GroupName="RotateAngle"/>
+                                <RadioButton Content="90° counter-clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=270}" GroupName="RotateAngle"/>
 
-                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output file" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
-                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                             </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
                 </Border>
             </Grid>
         </DataTemplate>
+
         <DataTemplate DataType="{x:Type vm:MetadataViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="metadataTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="metadataTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphTag}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Edit metadata" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Change a PDF's title, author, subject and keywords." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
                         <StackPanel>
-                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                            <Border Background="{DynamicResource CardBrush}" CornerRadius="10" Padding="16,14">
-                                <DockPanel>
-                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource EditTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource EditIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                    </Border>
-                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                    </StackPanel>
-                                </DockPanel>
-                            </Border>
-                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource SelectedFileTemplate}" Focusable="False"/>
 
-                            <TextBlock Text="TITLE" Style="{StaticResource SectionLabel}"/>
-                            <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Title" Style="{StaticResource Input}"/>
-                            <TextBlock Text="AUTHOR" Style="{StaticResource SectionLabel}"/>
-                            <TextBox Text="{Binding Author, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Author" Style="{StaticResource Input}"/>
-                            <TextBlock Text="SUBJECT" Style="{StaticResource SectionLabel}"/>
-                            <TextBox Text="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Subject" Style="{StaticResource Input}"/>
-                            <TextBlock Text="KEYWORDS" Style="{StaticResource SectionLabel}"/>
-                            <TextBox Text="{Binding Keywords, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Keywords" AutomationProperties.HelpText="Separate keywords with commas." Style="{StaticResource Input}" ToolTip="Separate keywords with commas."/>
+                            <TextBlock Text="Title" Style="{StaticResource FieldLabel}" Margin="0,22,0,6"/>
+                            <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Title"/>
+                            <TextBlock Text="Author" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Text="{Binding Author, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Author"/>
+                            <TextBlock Text="Subject" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Text="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Subject"/>
+                            <TextBlock Text="Keywords" Style="{StaticResource FieldLabel}"/>
+                            <TextBox Text="{Binding Keywords, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsLoaded}" AutomationProperties.Name="Keywords" AutomationProperties.HelpText="Separate keywords with commas." ToolTip="Separate keywords with commas."/>
                             <Label Content="{Binding StatusInfo}" Style="{StaticResource HintLabel}"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunSaveCommand}">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
+                            <Button Command="{Binding RunSaveCommand}" Tag="{StaticResource GlyphSave}">
                                 <Button.Style>
                                     <!-- Content lives in the style so the busy trigger can replace it -->
                                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -748,12 +713,12 @@
                             </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Edit metadata" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Edit metadata" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output file" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
-                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                                 <Label Style="{StaticResource HintLabel}" Content="To update the original file instead, choose it with Browse."/>
                             </StackPanel>
                         </ScrollViewer>
@@ -761,46 +726,34 @@
                 </Border>
             </Grid>
         </DataTemplate>
+
         <DataTemplate DataType="{x:Type vm:ProtectViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="protectTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="protectTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphLock}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Protect PDF" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Save a copy of a PDF that needs a password to open. The original is not changed." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
-                    <StackPanel Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
-                        <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                        <Border Background="{DynamicResource CardBrush}" CornerRadius="10" Padding="16,14">
-                            <DockPanel>
-                                <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource SecurityTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource SecurityIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                </Border>
-                                <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                    <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-                        <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
-                    </StackPanel>
+                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource SelectedFileTemplate}" Focusable="False"
+                                    Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}"/>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunProtectCommand}">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
+                            <Button Command="{Binding RunProtectCommand}" Tag="{StaticResource GlyphLock}">
                                 <Button.Style>
                                     <!-- Content lives in the style so the busy trigger can replace it -->
                                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -815,18 +768,18 @@
                             </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Protect PDF" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Protect PDF" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="PASSWORD" Style="{StaticResource SectionLabel}"/>
-                                <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password" Style="{StaticResource PasswordInput}"/>
-                                <TextBlock Text="CONFIRM PASSWORD" Style="{StaticResource SectionLabel}"/>
-                                <PasswordBox local:PasswordBinding.Password="{Binding ConfirmPassword}" AutomationProperties.Name="Confirm password" Style="{StaticResource PasswordInput}"/>
+                                <TextBlock Text="Password" Style="{StaticResource FieldLabel}"/>
+                                <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password"/>
+                                <TextBlock Text="Confirm password" Style="{StaticResource FieldLabel}"/>
+                                <PasswordBox local:PasswordBinding.Password="{Binding ConfirmPassword}" AutomationProperties.Name="Confirm password"/>
                                 <Label Content="{Binding StatusInfo}" Style="{StaticResource HintLabel}"/>
 
-                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output file" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
-                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                                 <Label Style="{StaticResource HintLabel}" Content="Anyone with the password can open, print and copy the protected file."/>
                             </StackPanel>
                         </ScrollViewer>
@@ -836,45 +789,32 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:UnlockViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="unlockTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="unlockTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphUnlock}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Unlock PDF" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Save a copy of a password-protected PDF without its password. You need to know the password." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
-                    <StackPanel Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
-                        <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                        <Border Background="{DynamicResource CardBrush}" CornerRadius="10" Padding="16,14">
-                            <DockPanel>
-                                <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource SecurityTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource SecurityIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                </Border>
-                                <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                    <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                </StackPanel>
-                            </DockPanel>
-                        </Border>
-                        <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
-                    </StackPanel>
+                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource SelectedFileTemplate}" Focusable="False"
+                                    Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}"/>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunUnlockCommand}">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
+                            <Button Command="{Binding RunUnlockCommand}" Tag="{StaticResource GlyphUnlock}">
                                 <Button.Style>
                                     <!-- Content lives in the style so the busy trigger can replace it -->
                                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -889,16 +829,16 @@
                             </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Unlock PDF" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Unlock PDF" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="PASSWORD" Style="{StaticResource SectionLabel}"/>
-                                <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password" AutomationProperties.HelpText="{Binding StatusInfo}" Style="{StaticResource PasswordInput}"/>
+                                <TextBlock Text="Password" Style="{StaticResource FieldLabel}"/>
+                                <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password" AutomationProperties.HelpText="{Binding StatusInfo}"/>
                                 <Label Content="{Binding StatusInfo}" Style="{StaticResource HintLabel}"/>
 
-                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output file" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
-                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                                 <Label Style="{StaticResource HintLabel}" Content="The unlocked copy opens without a password and has no restrictions."/>
                             </StackPanel>
                         </ScrollViewer>
@@ -906,44 +846,33 @@
                 </Border>
             </Grid>
         </DataTemplate>
+
         <DataTemplate DataType="{x:Type vm:WatermarkViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="watermarkTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="watermarkTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphWatermark}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Add watermark" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Stamp text such as CONFIDENTIAL or DRAFT across the pages of a PDF." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
                         <StackPanel>
-                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                            <Border Background="{DynamicResource CardBrush}" CornerRadius="10" Padding="16,14">
-                                <DockPanel>
-                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource EditTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource EditIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                    </Border>
-                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                    </StackPanel>
-                                </DockPanel>
-                            </Border>
-                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource SelectedFileTemplate}" Focusable="False"/>
 
-                            <TextBlock Text="PREVIEW" Style="{StaticResource SectionLabel}"/>
+                            <TextBlock Text="Preview" Style="{StaticResource FieldLabel}" Margin="0,22,0,6"/>
                             <!-- An A4 sheet with the watermark laid out as the service draws it -->
-                            <Border Width="210" Height="297" Background="{DynamicResource PaperBrush}" BorderBrush="{DynamicResource PaperBorderBrush}" BorderThickness="1" CornerRadius="3" HorizontalAlignment="Left" ClipToBounds="True" AutomationProperties.Name="Watermark preview">
+                            <Border Width="210" Height="297" Background="White" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="3" HorizontalAlignment="Left" ClipToBounds="True" AutomationProperties.Name="Watermark preview">
                                 <Canvas>
                                     <Grid Canvas.Left="{Binding PreviewTextLeft}" Canvas.Top="{Binding PreviewTextTop}" Width="{Binding PreviewTextWidth}" Height="{Binding PreviewTextMaxHeight}"
                                           RenderTransformOrigin="0.5,0.5" Opacity="{Binding PreviewOpacity}">
@@ -956,19 +885,19 @@
                                     </Grid>
                                 </Canvas>
                             </Border>
-                            <TextBlock Text="Shown on an A4 page. The watermark is sized to fit each page of the PDF." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,8,0,0"/>
+                            <TextBlock Text="Shown on an A4 page. The watermark is sized to fit each page of the PDF." Style="{StaticResource Hint}" Margin="0,8,0,0"/>
 
-                            <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
-                            <TextBlock Text="Click pages to watermark only those." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,0,0,12"/>
+                            <TextBlock Text="Pages" Style="{StaticResource FieldLabel}" Margin="0,22,0,2"/>
+                            <TextBlock Text="Click pages to watermark only those." Style="{StaticResource Hint}" Margin="0,0,0,12"/>
                             <ContentControl Content="{Binding Thumbnails}" Focusable="False"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunWatermarkCommand}">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
+                            <Button Command="{Binding RunWatermarkCommand}" Tag="{StaticResource GlyphWatermark}">
                                 <Button.Style>
                                     <!-- Content lives in the style so the busy trigger can replace it -->
                                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -983,91 +912,93 @@
                             </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Add watermark" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Add watermark" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="TEXT" Style="{StaticResource SectionLabel}"/>
-                                <TextBox Text="{Binding WatermarkText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Watermark text" Style="{StaticResource Input}"/>
+                                <TextBlock Text="Text" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Text="{Binding WatermarkText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Watermark text"/>
 
-                                <TextBlock Text="DIRECTION" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Direction" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <RadioButton Content="Diagonal" IsChecked="{Binding IsDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="WatermarkDirection" Margin="0,0,4,0"/>
-                                    <RadioButton Content="Horizontal" IsChecked="{Binding IsDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="WatermarkDirection" Margin="4,0,0,0"/>
+                                    <RadioButton Content="Diagonal" IsChecked="{Binding IsDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=True}" GroupName="WatermarkDirection"/>
+                                    <RadioButton Content="Horizontal" IsChecked="{Binding IsDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=False}" GroupName="WatermarkDirection"/>
                                 </UniformGrid>
 
-                                <TextBlock Text="OPACITY" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Opacity" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="3">
-                                    <RadioButton Content="Light" IsChecked="{Binding OpacityPercent, Converter={StaticResource RadioValue}, ConverterParameter=15}" Style="{StaticResource OptionRadio}" GroupName="WatermarkOpacity" Margin="0,0,4,0"/>
-                                    <RadioButton Content="Medium" IsChecked="{Binding OpacityPercent, Converter={StaticResource RadioValue}, ConverterParameter=30}" Style="{StaticResource OptionRadio}" GroupName="WatermarkOpacity" Margin="2,0,2,0"/>
-                                    <RadioButton Content="Strong" IsChecked="{Binding OpacityPercent, Converter={StaticResource RadioValue}, ConverterParameter=50}" Style="{StaticResource OptionRadio}" GroupName="WatermarkOpacity" Margin="4,0,0,0"/>
+                                    <RadioButton Content="Light" IsChecked="{Binding OpacityPercent, Converter={StaticResource RadioValue}, ConverterParameter=15}" GroupName="WatermarkOpacity"/>
+                                    <RadioButton Content="Medium" IsChecked="{Binding OpacityPercent, Converter={StaticResource RadioValue}, ConverterParameter=30}" GroupName="WatermarkOpacity"/>
+                                    <RadioButton Content="Strong" IsChecked="{Binding OpacityPercent, Converter={StaticResource RadioValue}, ConverterParameter=50}" GroupName="WatermarkOpacity"/>
                                 </UniformGrid>
 
-                                <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Pages" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <RadioButton Content="All pages" IsChecked="{Binding AllPages, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="WatermarkPages" Margin="0,0,4,8"/>
-                                    <RadioButton Content="Specific pages" IsChecked="{Binding AllPages, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="WatermarkPages" Margin="4,0,0,8"/>
+                                    <RadioButton Content="All pages" IsChecked="{Binding AllPages, Converter={StaticResource RadioValue}, ConverterParameter=True}" GroupName="WatermarkPages"/>
+                                    <RadioButton Content="Specific pages" IsChecked="{Binding AllPages, Converter={StaticResource RadioValue}, ConverterParameter=False}" GroupName="WatermarkPages"/>
                                 </UniformGrid>
-                                <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecEnabled}" AutomationProperties.Name="Pages to watermark" AutomationProperties.HelpText="{Binding PageCountInfo}" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
+                                <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecEnabled}" AutomationProperties.Name="Pages to watermark" AutomationProperties.HelpText="{Binding PageCountInfo}" ToolTip="Example: 1, 3, 5-7" Margin="0,4,0,0"/>
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
 
-                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output file" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
-                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                             </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
                 </Border>
             </Grid>
         </DataTemplate>
+
         <DataTemplate DataType="{x:Type vm:BatchViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="batchTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="batchTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding HasItems, ElementName=lstBatchFiles, Converter={StaticResource InverseBoolToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="480">
+                            <TextBlock Text="{StaticResource GlyphBatch}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Batch processing" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Rotate, watermark, extract pages from, or add or remove a password on many PDFs at once." Style="{StaticResource PageSubtitle}"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                <Button Command="{Binding AddFilesCommand}" Content="Select PDF files" Style="{StaticResource PrimaryButtonLarge}"/>
-                                <Button Command="{Binding AddFolderCommand}" Content="Select a folder" Style="{StaticResource SecondaryButton}" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                <Button Command="{Binding AddFilesCommand}" Content="Select PDF files" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                                <Button Command="{Binding AddFolderCommand}" Content="Select a folder" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" Padding="20,10" FontSize="15" Margin="8,0,0,0"/>
                             </StackPanel>
-                            <TextBlock Text="or drop PDFs or folders here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <TextBlock Text="or drop PDFs or folders here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
                     <DockPanel Visibility="{Binding HasItems, ElementName=lstBatchFiles, Converter={StaticResource BoolToVisibility}}">
-                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                <Button Content="Add files" Style="{StaticResource SecondaryButton}" Command="{Binding AddFilesCommand}"/>
-                                <Button Content="Add folder" Style="{StaticResource SecondaryButton}" Command="{Binding AddFolderCommand}" Margin="8,0,0,0"/>
+                                <Button Content="Add files" Tag="{StaticResource GlyphAdd}" Style="{StaticResource IconButton}" Command="{Binding AddFilesCommand}"/>
+                                <Button Content="Add folder" Tag="{StaticResource GlyphAddFolder}" Style="{StaticResource IconButton}" Command="{Binding AddFolderCommand}" Margin="6,0,0,0"/>
                             </StackPanel>
-                            <TextBlock Text="FILES" Style="{StaticResource SectionLabel}" VerticalAlignment="Center"/>
+                            <TextBlock Text="Files" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center"/>
                         </DockPanel>
-                        <DockPanel DockPanel.Dock="Bottom" Margin="0,4,0,0">
+                        <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                <Button Content="Remove selected" Style="{StaticResource SecondaryButton}" Command="{Binding RemoveFilesCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstBatchFiles}"/>
-                                <Button Content="Clear list" Style="{StaticResource SecondaryButton}" Command="{Binding ClearFilesCommand}" Margin="8,0,0,0"/>
+                                <Button Content="Remove selected" Tag="{StaticResource GlyphDelete}" Style="{StaticResource IconButton}" Command="{Binding RemoveFilesCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstBatchFiles}"/>
+                                <Button Content="Clear list" Tag="{StaticResource GlyphClear}" Style="{StaticResource IconButton}" Command="{Binding ClearFilesCommand}" Margin="6,0,0,0"/>
                             </StackPanel>
-                            <TextBlock Text="Files are processed top to bottom. Drop more PDFs or folders to add them." Style="{StaticResource Hint}" TextAlignment="Left" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <TextBlock Text="Files are processed top to bottom. Drop more PDFs or folders to add them." Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         </DockPanel>
                         <ListBox x:Name="lstBatchFiles" ItemsSource="{Binding Files}" SelectionMode="Extended" Style="{StaticResource FileList}" ItemTemplate="{StaticResource BatchFileTemplate}" AutomationProperties.Name="Files to process"/>
                     </DockPanel>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
                             <StackPanel>
-                                <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,14">
-                                    <TextBlock Text="{Binding ProgressText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextTrimming="CharacterEllipsis"/>
-                                    <ProgressBar Value="{Binding Progress}" Style="{StaticResource Progress}" Margin="0,8,0,0" AutomationProperties.Name="Batch progress"/>
+                                <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,12">
+                                    <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Hint}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Margin="0,8,0,0" AutomationProperties.Name="Batch progress"/>
                                 </StackPanel>
-                                <Button Command="{Binding RunBatchCommand}">
+                                <Button Command="{Binding RunBatchCommand}" Tag="{StaticResource GlyphBatch}">
                                     <Button.Style>
                                         <!-- Content lives in the style so the busy trigger can replace it -->
                                         <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -1080,15 +1011,15 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
-                                <Button Content="Cancel" Command="{Binding CancelCommand}" Style="{StaticResource SecondaryButton}" Margin="0,8,0,0"
+                                <Button Content="Cancel" Tag="{StaticResource GlyphCancel}" Command="{Binding CancelCommand}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Padding="0,8" Margin="0,8,0,0"
                                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" ToolTip="Stops after the file being processed now"/>
                             </StackPanel>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Batch processing" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Batch processing" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="PRESETS" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Presets" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="None yet. Choose the settings below, then name and save them here." Style="{StaticResource HintLabel}" Margin="0,0,0,8"
                                        Visibility="{Binding HasPresets, Converter={StaticResource InverseBoolToVisibility}}"/>
                                 <ItemsControl ItemsSource="{Binding Presets}" ItemTemplate="{StaticResource BatchPresetTemplate}" Focusable="False" AutomationProperties.Name="Saved presets">
@@ -1098,77 +1029,77 @@
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                 </ItemsControl>
-                                <DockPanel Margin="0,4,0,0">
-                                    <Button DockPanel.Dock="Right" Content="Save" Command="{Binding SavePresetCommand}" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"/>
-                                    <TextBox Text="{Binding NewPresetName, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" Style="{StaticResource Input}"
+                                <DockPanel Margin="0,2,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Save" Tag="{StaticResource GlyphSave}" Command="{Binding SavePresetCommand}" Style="{StaticResource IconButton}" Margin="6,0,0,0"/>
+                                    <TextBox Text="{Binding NewPresetName, UpdateSourceTrigger=PropertyChanged}" MaxLength="40"
                                              AutomationProperties.Name="New preset name" ToolTip="A name for the current settings, such as Stamp CONFIDENTIAL"/>
                                 </DockPanel>
                                 <Label Style="{StaticResource HintLabel}" Content="A preset keeps the action, its options and the output folder. Passwords are never saved."/>
 
-                                <TextBlock Text="ACTION" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Action" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <RadioButton Content="Rotate" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Rotate}" Style="{StaticResource OptionRadio}" GroupName="BatchAction" Margin="0,0,4,8"/>
-                                    <RadioButton Content="Watermark" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Watermark}" Style="{StaticResource OptionRadio}" GroupName="BatchAction" Margin="4,0,0,8"/>
-                                    <RadioButton Content="Extract pages" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Extract}" Style="{StaticResource OptionRadio}" GroupName="BatchAction" Margin="0,0,4,8"/>
-                                    <RadioButton Content="Protect" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Protect}" Style="{StaticResource OptionRadio}" GroupName="BatchAction" Margin="4,0,0,8"/>
-                                    <RadioButton Content="Unlock" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Unlock}" Style="{StaticResource OptionRadio}" GroupName="BatchAction" Margin="0,0,4,8"/>
+                                    <RadioButton Content="Rotate" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Rotate}" GroupName="BatchAction"/>
+                                    <RadioButton Content="Watermark" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Watermark}" GroupName="BatchAction"/>
+                                    <RadioButton Content="Extract pages" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Extract}" GroupName="BatchAction"/>
+                                    <RadioButton Content="Protect" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Protect}" GroupName="BatchAction"/>
+                                    <RadioButton Content="Unlock" IsChecked="{Binding Action, Converter={StaticResource RadioValue}, ConverterParameter=Unlock}" GroupName="BatchAction"/>
                                 </UniformGrid>
 
                                 <!-- Rotate -->
                                 <StackPanel Visibility="{Binding Action, Converter={StaticResource EqualsToVisibility}, ConverterParameter=Rotate}">
-                                    <TextBlock Text="ROTATION" Style="{StaticResource SectionLabel}"/>
-                                    <RadioButton Content="90° clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=90}" Style="{StaticResource OptionRadio}" GroupName="BatchAngle"/>
-                                    <RadioButton Content="180°" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=180}" Style="{StaticResource OptionRadio}" GroupName="BatchAngle"/>
-                                    <RadioButton Content="90° counter-clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=270}" Style="{StaticResource OptionRadio}" GroupName="BatchAngle"/>
+                                    <TextBlock Text="Rotation" Style="{StaticResource FieldLabel}"/>
+                                    <RadioButton Content="90° clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=90}" GroupName="BatchAngle"/>
+                                    <RadioButton Content="180°" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=180}" GroupName="BatchAngle"/>
+                                    <RadioButton Content="90° counter-clockwise" IsChecked="{Binding RotationAngle, Converter={StaticResource RadioValue}, ConverterParameter=270}" GroupName="BatchAngle"/>
                                     <Label Style="{StaticResource HintLabel}" Content="Every page of every file is rotated."/>
                                 </StackPanel>
 
                                 <!-- Watermark -->
                                 <StackPanel Visibility="{Binding Action, Converter={StaticResource EqualsToVisibility}, ConverterParameter=Watermark}">
-                                    <TextBlock Text="TEXT" Style="{StaticResource SectionLabel}"/>
-                                    <TextBox Text="{Binding WatermarkText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Watermark text" Style="{StaticResource Input}"/>
-                                    <TextBlock Text="DIRECTION" Style="{StaticResource SectionLabel}"/>
+                                    <TextBlock Text="Text" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox Text="{Binding WatermarkText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Watermark text"/>
+                                    <TextBlock Text="Direction" Style="{StaticResource FieldLabel}"/>
                                     <UniformGrid Columns="2">
-                                        <RadioButton Content="Diagonal" IsChecked="{Binding WatermarkDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="BatchDirection" Margin="0,0,4,0"/>
-                                        <RadioButton Content="Horizontal" IsChecked="{Binding WatermarkDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="BatchDirection" Margin="4,0,0,0"/>
+                                        <RadioButton Content="Diagonal" IsChecked="{Binding WatermarkDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=True}" GroupName="BatchDirection"/>
+                                        <RadioButton Content="Horizontal" IsChecked="{Binding WatermarkDiagonal, Converter={StaticResource RadioValue}, ConverterParameter=False}" GroupName="BatchDirection"/>
                                     </UniformGrid>
-                                    <TextBlock Text="OPACITY" Style="{StaticResource SectionLabel}"/>
+                                    <TextBlock Text="Opacity" Style="{StaticResource FieldLabel}"/>
                                     <UniformGrid Columns="3">
-                                        <RadioButton Content="Light" IsChecked="{Binding WatermarkOpacity, Converter={StaticResource RadioValue}, ConverterParameter=15}" Style="{StaticResource OptionRadio}" GroupName="BatchOpacity" Margin="0,0,4,0"/>
-                                        <RadioButton Content="Medium" IsChecked="{Binding WatermarkOpacity, Converter={StaticResource RadioValue}, ConverterParameter=30}" Style="{StaticResource OptionRadio}" GroupName="BatchOpacity" Margin="2,0,2,0"/>
-                                        <RadioButton Content="Strong" IsChecked="{Binding WatermarkOpacity, Converter={StaticResource RadioValue}, ConverterParameter=50}" Style="{StaticResource OptionRadio}" GroupName="BatchOpacity" Margin="4,0,0,0"/>
+                                        <RadioButton Content="Light" IsChecked="{Binding WatermarkOpacity, Converter={StaticResource RadioValue}, ConverterParameter=15}" GroupName="BatchOpacity"/>
+                                        <RadioButton Content="Medium" IsChecked="{Binding WatermarkOpacity, Converter={StaticResource RadioValue}, ConverterParameter=30}" GroupName="BatchOpacity"/>
+                                        <RadioButton Content="Strong" IsChecked="{Binding WatermarkOpacity, Converter={StaticResource RadioValue}, ConverterParameter=50}" GroupName="BatchOpacity"/>
                                     </UniformGrid>
                                     <Label Style="{StaticResource HintLabel}" Content="The watermark goes on every page of every file."/>
                                 </StackPanel>
 
                                 <!-- Extract pages -->
                                 <StackPanel Visibility="{Binding Action, Converter={StaticResource EqualsToVisibility}, ConverterParameter=Extract}">
-                                    <TextBlock Text="PAGES TO EXTRACT" Style="{StaticResource SectionLabel}"/>
-                                    <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Pages to extract from every file" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
+                                    <TextBlock Text="Pages to extract" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Pages to extract from every file" ToolTip="Example: 1, 3, 5-7"/>
                                     <Label Style="{StaticResource HintLabel}" Content="The same pages are taken from every file. For example, 1 keeps each file's first page."/>
                                 </StackPanel>
 
                                 <!-- Protect -->
                                 <StackPanel Visibility="{Binding Action, Converter={StaticResource EqualsToVisibility}, ConverterParameter=Protect}">
-                                    <TextBlock Text="PASSWORD" Style="{StaticResource SectionLabel}"/>
-                                    <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password for every file" Style="{StaticResource PasswordInput}"/>
-                                    <TextBlock Text="CONFIRM PASSWORD" Style="{StaticResource SectionLabel}"/>
-                                    <PasswordBox local:PasswordBinding.Password="{Binding ConfirmPassword}" AutomationProperties.Name="Confirm password" Style="{StaticResource PasswordInput}"/>
+                                    <TextBlock Text="Password" Style="{StaticResource FieldLabel}"/>
+                                    <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password for every file"/>
+                                    <TextBlock Text="Confirm password" Style="{StaticResource FieldLabel}"/>
+                                    <PasswordBox local:PasswordBinding.Password="{Binding ConfirmPassword}" AutomationProperties.Name="Confirm password"/>
                                     <Label Style="{StaticResource HintLabel}" Content="Every file gets the same password. It cannot be recovered if it is forgotten."/>
                                 </StackPanel>
 
                                 <!-- Unlock -->
                                 <StackPanel Visibility="{Binding Action, Converter={StaticResource EqualsToVisibility}, ConverterParameter=Unlock}">
-                                    <TextBlock Text="PASSWORD" Style="{StaticResource SectionLabel}"/>
-                                    <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password of the files" Style="{StaticResource PasswordInput}"/>
+                                    <TextBlock Text="Password" Style="{StaticResource FieldLabel}"/>
+                                    <PasswordBox local:PasswordBinding.Password="{Binding Password}" AutomationProperties.Name="Password of the files"/>
                                     <Label Style="{StaticResource HintLabel}" Content="The same password is tried on every file. Files it does not open are listed as failed."/>
                                 </StackPanel>
 
-                                <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output folder" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputFolderText}" Style="{StaticResource ValueLabel}"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                    <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}"/>
-                                    <Button Command="{Binding UseOriginalFoldersCommand}" Content="Use original folders" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}"/>
+                                    <Button Command="{Binding UseOriginalFoldersCommand}" Content="Use original folders" Margin="6,0,0,0"
                                             Visibility="{Binding HasOutputFolder, Converter={StaticResource BoolToVisibility}}"/>
                                 </StackPanel>
                                 <Label Style="{StaticResource HintLabel}" Content="Each output is named after its file, ending in _rotated, _watermarked and so on. The originals are not changed."/>
@@ -1178,57 +1109,46 @@
                 </Border>
             </Grid>
         </DataTemplate>
+
         <DataTemplate DataType="{x:Type vm:PdfToImageViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="pdfToImageTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="pdfToImageTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding SourcePath, Converter={StaticResource EmptyToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphImage}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="PDF to image" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Save pages as PNG or JPEG images, one image per page." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop a PDF here" Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding OpenFileCommand}" Content="Select PDF file" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop a PDF here" Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SourcePath, Converter={StaticResource NotEmptyToVisibility}}">
                         <StackPanel>
-                            <TextBlock Text="SELECTED FILE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                            <Border Background="{DynamicResource CardBrush}" CornerRadius="10" Padding="16,14">
-                                <DockPanel>
-                                    <Border DockPanel.Dock="Left" Style="{StaticResource IconTile}" Background="{DynamicResource ConvertTileBrush}" Width="40" Height="40" Margin="0,0,14,0">
-                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Stroke="{DynamicResource ConvertIconBrush}" Width="19" Height="19" Stretch="Uniform" StrokeThickness="2"/>
-                                    </Border>
-                                    <Button DockPanel.Dock="Right" Content="Change file" Style="{StaticResource SecondaryButton}" VerticalAlignment="Center" Margin="14,0,0,0" Command="{Binding OpenFileCommand}"/>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Style="{StaticResource FileName}" Text="{Binding SourcePath, Converter={StaticResource FileNameConverter}}"/>
-                                        <Label Style="{StaticResource PathLabel}" Content="{Binding SourcePath}"/>
-                                    </StackPanel>
-                                </DockPanel>
-                            </Border>
-                            <TextBlock Text="Drop another PDF anywhere on this page to replace it." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,12,0,0"/>
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource SelectedFileTemplate}" Focusable="False"/>
 
-                            <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
-                            <TextBlock Text="Click pages to convert only those." Style="{StaticResource Hint}" TextAlignment="Left" Margin="0,0,0,12"/>
+                            <TextBlock Text="Pages" Style="{StaticResource FieldLabel}" Margin="0,22,0,2"/>
+                            <TextBlock Text="Click pages to convert only those." Style="{StaticResource Hint}" Margin="0,0,0,12"/>
                             <ContentControl Content="{Binding Thumbnails}" Focusable="False"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
                             <StackPanel>
-                                <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,14">
-                                    <TextBlock Text="{Binding ProgressText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextTrimming="CharacterEllipsis"/>
-                                    <ProgressBar Value="{Binding Progress}" Style="{StaticResource Progress}" Margin="0,8,0,0" AutomationProperties.Name="Conversion progress"/>
+                                <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,12">
+                                    <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Hint}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Margin="0,8,0,0" AutomationProperties.Name="Conversion progress"/>
                                 </StackPanel>
-                                <Button Command="{Binding RunConvertCommand}">
+                                <Button Command="{Binding RunConvertCommand}" Tag="{StaticResource GlyphImage}">
                                     <Button.Style>
                                         <!-- Content lives in the style so the busy trigger can replace it -->
                                         <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -1241,36 +1161,36 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
-                                <Button Content="Cancel" Command="{Binding CancelCommand}" Style="{StaticResource SecondaryButton}" Margin="0,8,0,0"
+                                <Button Content="Cancel" Tag="{StaticResource GlyphCancel}" Command="{Binding CancelCommand}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Padding="0,8" Margin="0,8,0,0"
                                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" ToolTip="Stops after the page being saved now"/>
                             </StackPanel>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="PDF to image" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="PDF to image" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="FORMAT" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Format" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <RadioButton Content="PNG" IsChecked="{Binding Format, Converter={StaticResource RadioValue}, ConverterParameter=Png}" Style="{StaticResource OptionRadio}" GroupName="ImageFormat" Margin="0,0,4,0" ToolTip="Sharp text and lines, larger files"/>
-                                    <RadioButton Content="JPEG" IsChecked="{Binding Format, Converter={StaticResource RadioValue}, ConverterParameter=Jpeg}" Style="{StaticResource OptionRadio}" GroupName="ImageFormat" Margin="4,0,0,0" ToolTip="Smaller files, best for photos"/>
+                                    <RadioButton Content="PNG" IsChecked="{Binding Format, Converter={StaticResource RadioValue}, ConverterParameter=Png}" GroupName="ImageFormat" ToolTip="Sharp text and lines, larger files"/>
+                                    <RadioButton Content="JPEG" IsChecked="{Binding Format, Converter={StaticResource RadioValue}, ConverterParameter=Jpeg}" GroupName="ImageFormat" ToolTip="Smaller files, best for photos"/>
                                 </UniformGrid>
 
-                                <TextBlock Text="RESOLUTION" Style="{StaticResource SectionLabel}"/>
-                                <RadioButton Content="72 DPI, for screens" IsChecked="{Binding Dpi, Converter={StaticResource RadioValue}, ConverterParameter=72}" Style="{StaticResource OptionRadio}" GroupName="ImageDpi"/>
-                                <RadioButton Content="150 DPI, standard" IsChecked="{Binding Dpi, Converter={StaticResource RadioValue}, ConverterParameter=150}" Style="{StaticResource OptionRadio}" GroupName="ImageDpi"/>
-                                <RadioButton Content="300 DPI, for printing" IsChecked="{Binding Dpi, Converter={StaticResource RadioValue}, ConverterParameter=300}" Style="{StaticResource OptionRadio}" GroupName="ImageDpi"/>
+                                <TextBlock Text="Resolution" Style="{StaticResource FieldLabel}"/>
+                                <RadioButton Content="72 DPI, for screens" IsChecked="{Binding Dpi, Converter={StaticResource RadioValue}, ConverterParameter=72}" GroupName="ImageDpi"/>
+                                <RadioButton Content="150 DPI, standard" IsChecked="{Binding Dpi, Converter={StaticResource RadioValue}, ConverterParameter=150}" GroupName="ImageDpi"/>
+                                <RadioButton Content="300 DPI, for printing" IsChecked="{Binding Dpi, Converter={StaticResource RadioValue}, ConverterParameter=300}" GroupName="ImageDpi"/>
 
-                                <TextBlock Text="PAGES" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Pages" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <RadioButton Content="All pages" IsChecked="{Binding AllPages, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="ImagePages" Margin="0,0,4,8"/>
-                                    <RadioButton Content="Specific pages" IsChecked="{Binding AllPages, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="ImagePages" Margin="4,0,0,8"/>
+                                    <RadioButton Content="All pages" IsChecked="{Binding AllPages, Converter={StaticResource RadioValue}, ConverterParameter=True}" GroupName="ImagePages"/>
+                                    <RadioButton Content="Specific pages" IsChecked="{Binding AllPages, Converter={StaticResource RadioValue}, ConverterParameter=False}" GroupName="ImagePages"/>
                                 </UniformGrid>
-                                <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecEnabled}" AutomationProperties.Name="Pages to convert" AutomationProperties.HelpText="{Binding PageCountInfo}" Style="{StaticResource Input}" ToolTip="Example: 1, 3, 5-7"/>
+                                <TextBox Text="{Binding PageSpec, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsPageSpecEnabled}" AutomationProperties.Name="Pages to convert" AutomationProperties.HelpText="{Binding PageCountInfo}" ToolTip="Example: 1, 3, 5-7" Margin="0,4,0,0"/>
                                 <Label Content="{Binding PageCountInfo}" Style="{StaticResource HintLabel}"/>
 
-                                <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output folder" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputFolder}" Style="{StaticResource ValueLabel}"/>
-                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                                 <Label Style="{StaticResource HintLabel}" Content="Images are named after the file, ending in _page1, _page2 and so on. The folder is created if needed."/>
                             </StackPanel>
                         </ScrollViewer>
@@ -1278,38 +1198,40 @@
                 </Border>
             </Grid>
         </DataTemplate>
+
         <DataTemplate DataType="{x:Type vm:ImagesToPdfViewModel}">
-            <Grid Background="{DynamicResource WindowBrush}" AllowDrop="True" DragOver="tab_DragOver" Drop="imagesToPdfTab_Drop">
+            <Grid Background="Transparent" AllowDrop="True" DragOver="tab_DragOver" Drop="imagesToPdfTab_Drop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="310"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="28">
+                <Grid Grid.Column="0" Margin="24">
                     <Grid Visibility="{Binding HasItems, ElementName=lstImages, Converter={StaticResource InverseBoolToVisibility}}">
-                        <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource BorderStrongBrush}" StrokeDashArray="6 4" StrokeThickness="1.5"/>
+                        <Rectangle Style="{StaticResource DropArea}"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="460">
+                            <TextBlock Text="{StaticResource GlyphPdf}" Style="{StaticResource DropAreaIcon}"/>
                             <TextBlock Text="Image to PDF" Style="{StaticResource PageTitle}"/>
                             <TextBlock Text="Turn photos and scans into a PDF, one page per image, in the order you choose." Style="{StaticResource PageSubtitle}"/>
-                            <Button Command="{Binding AddImagesCommand}" Content="Select images" Style="{StaticResource PrimaryButtonLarge}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="or drop images or a folder here. JPEG, PNG, BMP, GIF and TIFF." Style="{StaticResource Hint}" Margin="0,16,0,0"/>
+                            <Button Command="{Binding AddImagesCommand}" Content="Select images" Tag="{StaticResource GlyphOpenFile}" Style="{StaticResource StartButton}"/>
+                            <TextBlock Text="or drop images or a folder here. JPEG, PNG, BMP, GIF and TIFF." Style="{StaticResource DropAreaHint}"/>
                         </StackPanel>
                     </Grid>
 
                     <DockPanel Visibility="{Binding HasItems, ElementName=lstImages, Converter={StaticResource BoolToVisibility}}">
-                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                            <Button DockPanel.Dock="Right" Content="Add images" Style="{StaticResource SecondaryButton}" Command="{Binding AddImagesCommand}"/>
-                            <TextBlock Text="IMAGES" Style="{StaticResource SectionLabel}" VerticalAlignment="Center"/>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <Button DockPanel.Dock="Right" Content="Add images" Tag="{StaticResource GlyphAdd}" Style="{StaticResource IconButton}" Command="{Binding AddImagesCommand}"/>
+                            <TextBlock Text="Images" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center"/>
                         </DockPanel>
-                        <TextBlock DockPanel.Dock="Bottom" Text="Each image becomes a page, top to bottom. Photos are turned upright using their camera orientation." Style="{StaticResource Hint}" TextAlignment="Left" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        <TextBlock DockPanel.Dock="Bottom" Text="Each image becomes a page, top to bottom. Photos are turned upright using their camera orientation." Style="{StaticResource Hint}" Margin="0,8,0,0"/>
                         <ListBox x:Name="lstImages" ItemsSource="{Binding Images}" SelectionMode="Extended" Style="{StaticResource FileList}" ItemTemplate="{StaticResource ImageItemTemplate}" AutomationProperties.Name="Images to convert"/>
                     </DockPanel>
                 </Grid>
 
-                <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Border Grid.Column="1" BorderThickness="1,0,0,0" Style="{StaticResource SectionPanel}">
                     <DockPanel>
-                        <Border DockPanel.Dock="Bottom" Padding="24,18" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-                            <Button Command="{Binding RunCreateCommand}">
+                        <Border DockPanel.Dock="Bottom" Padding="16,8,16,16">
+                            <Button Command="{Binding RunCreateCommand}" Tag="{StaticResource GlyphPdf}">
                                 <Button.Style>
                                     <!-- Content lives in the style so the busy trigger can replace it -->
                                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -1324,33 +1246,33 @@
                             </Button>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="24,24,24,16">
-                                <TextBlock Text="Image to PDF" Style="{StaticResource SidebarTitle}"/>
+                            <StackPanel Margin="16,16,16,8">
+                                <TextBlock Text="Image to PDF" Style="{StaticResource PanelTitle}"/>
 
-                                <TextBlock Text="ORDER" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Order" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2">
-                                    <Button Command="{Binding MoveUpCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstImages}" Content="Move up" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0"/>
-                                    <Button Command="{Binding MoveDownCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstImages}" Content="Move down" Style="{StaticResource SecondaryButton}" Margin="4,0,0,0"/>
+                                    <Button Command="{Binding MoveUpCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstImages}" Content="Move up" Tag="{StaticResource GlyphUp}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Margin="0,0,4,0"/>
+                                    <Button Command="{Binding MoveDownCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstImages}" Content="Move down" Tag="{StaticResource GlyphDown}" Style="{StaticResource IconButton}" HorizontalAlignment="Stretch" Margin="4,0,0,0"/>
                                 </UniformGrid>
-                                <Button Command="{Binding RemoveImagesCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstImages}" Content="Remove selected" Style="{StaticResource SecondaryButton}" Margin="0,8,0,0" HorizontalAlignment="Stretch"/>
+                                <Button Command="{Binding RemoveImagesCommand}" CommandParameter="{Binding SelectedItems, ElementName=lstImages}" Content="Remove selected" Tag="{StaticResource GlyphDelete}" Style="{StaticResource IconButton}" Margin="0,8,0,0" HorizontalAlignment="Stretch"/>
 
-                                <TextBlock Text="PAGE SIZE" Style="{StaticResource SectionLabel}"/>
-                                <RadioButton Content="Same as each image" IsChecked="{Binding PageSize, Converter={StaticResource RadioValue}, ConverterParameter=SameAsImage}" Style="{StaticResource OptionRadio}" GroupName="ImagePageSize"/>
+                                <TextBlock Text="Page size" Style="{StaticResource FieldLabel}"/>
+                                <RadioButton Content="Same as each image" IsChecked="{Binding PageSize, Converter={StaticResource RadioValue}, ConverterParameter=SameAsImage}" GroupName="ImagePageSize"/>
                                 <UniformGrid Columns="2">
-                                    <RadioButton Content="A4" IsChecked="{Binding PageSize, Converter={StaticResource RadioValue}, ConverterParameter=A4}" Style="{StaticResource OptionRadio}" GroupName="ImagePageSize" Margin="0,0,4,0"/>
-                                    <RadioButton Content="Letter" IsChecked="{Binding PageSize, Converter={StaticResource RadioValue}, ConverterParameter=Letter}" Style="{StaticResource OptionRadio}" GroupName="ImagePageSize" Margin="4,0,0,0"/>
+                                    <RadioButton Content="A4" IsChecked="{Binding PageSize, Converter={StaticResource RadioValue}, ConverterParameter=A4}" GroupName="ImagePageSize"/>
+                                    <RadioButton Content="Letter" IsChecked="{Binding PageSize, Converter={StaticResource RadioValue}, ConverterParameter=Letter}" GroupName="ImagePageSize"/>
                                 </UniformGrid>
                                 <Label Style="{StaticResource HintLabel}" Content="A4 and Letter pages turn to match each image, which is scaled to fit."/>
 
-                                <TextBlock Text="MARGIN" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Margin" Style="{StaticResource FieldLabel}"/>
                                 <UniformGrid Columns="2" IsEnabled="{Binding CanHaveMargin}">
-                                    <RadioButton Content="None" IsChecked="{Binding Margin, Converter={StaticResource RadioValue}, ConverterParameter=False}" Style="{StaticResource OptionRadio}" GroupName="ImageMargin" Margin="0,0,4,0"/>
-                                    <RadioButton Content="Half an inch" IsChecked="{Binding Margin, Converter={StaticResource RadioValue}, ConverterParameter=True}" Style="{StaticResource OptionRadio}" GroupName="ImageMargin" Margin="4,0,0,0"/>
+                                    <RadioButton Content="None" IsChecked="{Binding Margin, Converter={StaticResource RadioValue}, ConverterParameter=False}" GroupName="ImageMargin"/>
+                                    <RadioButton Content="Half an inch" IsChecked="{Binding Margin, Converter={StaticResource RadioValue}, ConverterParameter=True}" GroupName="ImageMargin"/>
                                 </UniformGrid>
 
-                                <TextBlock Text="OUTPUT FILE" Style="{StaticResource SectionLabel}"/>
+                                <TextBlock Text="Output file" Style="{StaticResource FieldLabel}"/>
                                 <Label Content="{Binding OutputPath}" Style="{StaticResource ValueLabel}"/>
-                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                <Button Command="{Binding BrowseOutputCommand}" Content="Browse" Tag="{StaticResource GlyphFolder}" Style="{StaticResource IconButton}" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                             </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
@@ -1361,122 +1283,120 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="216"/>
+            <ColumnDefinition Width="220"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+        <Border Grid.Column="0" BorderThickness="0,0,1,0" Style="{StaticResource SectionPanel}">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="22,20,0,16">
-                    <Border Width="28" Height="28" CornerRadius="6" Background="{DynamicResource AccentBrush}">
-                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconFile}" Width="13" Height="15" Stretch="Uniform" Stroke="White" StrokeThickness="2"/>
-                    </Border>
-                    <TextBlock Text="PDF Manager" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="20,14,0,8">
+                    <Image Source="app.ico" Width="20" Height="20" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock Text="PDF Manager" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
 
-                <TextBlock DockPanel.Dock="Bottom" Text="Files never leave this computer." Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="22,0,22,20" TextWrapping="Wrap"/>
+                <TextBlock DockPanel.Dock="Bottom" Text="Files never leave this computer." Style="{StaticResource Hint}" Margin="20,8,20,16"/>
 
                 <!-- Scrolls when the window is too short for every tool, instead of running into the footer -->
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
                     <StackPanel>
                         <RadioButton x:Name="navHome" AutomationProperties.Name="Tools" Style="{StaticResource NavItem}" GroupName="Nav" Tag="0" IsChecked="True" Checked="Nav_Checked">
                             <StackPanel Orientation="Horizontal">
-                                <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconHome}"/>
+                                <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphHome}"/>
                                 <TextBlock Text="Tools" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton>
 
-                        <Expander Header="ORGANIZE" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.OrganizeExpanded}" AutomationProperties.Name="Organize tools">
+                        <Expander Header="Organize" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.OrganizeExpanded}" AutomationProperties.Name="Organize tools">
                             <StackPanel>
                                 <RadioButton x:Name="navMerge" AutomationProperties.Name="Merge PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="2" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconMerge}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphMerge}"/>
                                         <TextBlock Text="Merge PDF" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton x:Name="navSplit" AutomationProperties.Name="Split PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="1" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconSplit}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphSplit}"/>
                                         <TextBlock Text="Split PDF" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton x:Name="navExtract" AutomationProperties.Name="Extract pages" Style="{StaticResource NavItem}" GroupName="Nav" Tag="4" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconExtract}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphExtract}"/>
                                         <TextBlock Text="Extract pages" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton x:Name="navReorder" AutomationProperties.Name="Reorder pages" Style="{StaticResource NavItem}" GroupName="Nav" Tag="12" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconReorder}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphReorder}"/>
                                         <TextBlock Text="Reorder pages" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="EDIT" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.EditExpanded}" AutomationProperties.Name="Edit tools">
+                        <Expander Header="Edit" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.EditExpanded}" AutomationProperties.Name="Edit tools">
                             <StackPanel>
                                 <RadioButton x:Name="navRotate" AutomationProperties.Name="Rotate PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="3" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconRotate}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphRotate}"/>
                                         <TextBlock Text="Rotate PDF" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton x:Name="navMetadata" AutomationProperties.Name="Edit metadata" Style="{StaticResource NavItem}" GroupName="Nav" Tag="5" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconTag}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphTag}"/>
                                         <TextBlock Text="Edit metadata" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton x:Name="navWatermark" AutomationProperties.Name="Add watermark" Style="{StaticResource NavItem}" GroupName="Nav" Tag="8" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconWatermark}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphWatermark}"/>
                                         <TextBlock Text="Add watermark" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="SECURITY" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.SecurityExpanded}" AutomationProperties.Name="Security tools">
+                        <Expander Header="Security" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.SecurityExpanded}" AutomationProperties.Name="Security tools">
                             <StackPanel>
                                 <RadioButton x:Name="navUnlock" AutomationProperties.Name="Unlock PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="7" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconUnlock}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphUnlock}"/>
                                         <TextBlock Text="Unlock PDF" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton x:Name="navProtect" AutomationProperties.Name="Protect PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="6" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconLock}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphLock}"/>
                                         <TextBlock Text="Protect PDF" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="CONVERT" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.ConvertExpanded}" AutomationProperties.Name="Convert tools">
+                        <Expander Header="Convert" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.ConvertExpanded}" AutomationProperties.Name="Convert tools">
                             <StackPanel>
                                 <RadioButton x:Name="navPdfToImage" AutomationProperties.Name="PDF to image" Style="{StaticResource NavItem}" GroupName="Nav" Tag="10" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconImage}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphImage}"/>
                                         <TextBlock Text="PDF to image" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton x:Name="navImagesToPdf" AutomationProperties.Name="Image to PDF" Style="{StaticResource NavItem}" GroupName="Nav" Tag="11" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconImageToPdf}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphPdf}"/>
                                         <TextBlock Text="Image to PDF" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>
                             </StackPanel>
                         </Expander>
 
-                        <Expander Header="BATCH" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.BatchExpanded}" AutomationProperties.Name="Batch tools">
+                        <Expander Header="Batch" Style="{StaticResource NavSection}" IsExpanded="{Binding Sidebar.BatchExpanded}" AutomationProperties.Name="Batch tools">
                             <StackPanel>
                                 <RadioButton x:Name="navBatch" AutomationProperties.Name="Batch processing" Style="{StaticResource NavItem}" GroupName="Nav" Tag="9" Checked="Nav_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Style="{StaticResource NavIcon}" Data="{StaticResource IconBatch}"/>
+                                        <TextBlock Style="{StaticResource NavIcon}" Text="{StaticResource GlyphBatch}"/>
                                         <TextBlock Text="Batch processing" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </RadioButton>

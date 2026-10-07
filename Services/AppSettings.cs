@@ -19,13 +19,13 @@ namespace PDFManager.Services
         // Saved Batch settings, in the order they were created
         public List<BatchPreset> BatchPresets { get; set; } = new List<BatchPreset>();
 
-        // "System", "Light" or "Dark". Dark until the user chooses, which is how the app always looked
-        public string Theme { get; set; } = nameof(AppTheme.Dark);
+        // "System", "Light" or "Dark". Follows Windows until the user chooses, as ScanManager does
+        public string Theme { get; set; } = nameof(AppTheme.System);
 
         [JsonIgnore]
         public AppTheme ThemeChoice
         {
-            get => Enum.TryParse(Theme, ignoreCase: true, out AppTheme theme) && Enum.IsDefined(theme) ? theme : AppTheme.Dark;
+            get => Enum.TryParse(Theme, ignoreCase: true, out AppTheme theme) && Enum.IsDefined(theme) ? theme : AppTheme.System;
             set => Theme = value.ToString();
         }
     }
@@ -99,7 +99,7 @@ namespace PDFManager.Services
         {
             settings.CollapsedSections = settings.CollapsedSections?.Where(name => name != null).ToList() ?? new List<string>();
             settings.BatchPresets = settings.BatchPresets?.Where(preset => preset != null).ToList() ?? new List<BatchPreset>();
-            settings.Theme ??= nameof(AppTheme.Dark);
+            settings.Theme ??= nameof(AppTheme.System);
             return settings;
         }
 

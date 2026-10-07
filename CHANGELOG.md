@@ -2,6 +2,10 @@
 
 What's new in each release. Add a section for the next version before pushing its tag: the release workflow copies it to the top of the GitHub release notes, as "What's new". Preview them with `.\.github\release-notes.ps1 -Version <version>`.
 
+## Unreleased
+
+- **A new look**, matching ScanManager: Windows 11's Fluent style with Mica, the Windows accent colour and Segoe Fluent icons. The app now follows Windows' light or dark mode until you choose one on the Tools page.
+
 ## 1.1.0
 
 - **Reorder pages**, a new tool in Organize: drag pages into a new order, or select pages and move them to the start, the end, or one place at a time. Reverse or reset the whole order. Bookmarks, links, form fields and document properties stay with their pages.

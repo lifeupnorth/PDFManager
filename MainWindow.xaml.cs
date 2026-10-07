@@ -22,13 +22,6 @@ namespace PDFManager
 
         private MainViewModel ViewModel => (MainViewModel)DataContext;
 
-        // The window chrome follows the theme: a dark title bar for the dark palette
-        protected override void OnSourceInitialized(EventArgs e)
-        {
-            base.OnSourceInitialized(e);
-            ThemeManager.SetTitleBar(this, ThemeManager.IsDark);
-        }
-
         // Home tool cards carry the same view index as the sidebar items. The sidebar is the
         // source of truth, so a card just checks the matching sidebar item.
         private void OpenTool_Click(object sender, RoutedEventArgs e)

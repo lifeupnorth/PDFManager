@@ -52,18 +52,29 @@ namespace PDFManager.Harness
             ((IInvokeProvider)peer.GetPattern(PatternInterface.Invoke)).Invoke();
         }
 
-        // Saves what the window shows (its WPF content, without the title bar) as a PNG
-        public static void SaveScreenshot(Window window, string path)
+        // Saves what the window shows (its WPF content, without the title bar) as a PNG. The Mica
+        // backdrop is drawn by Windows, not WPF, so it comes out as Fluent's plain base colour, which
+        // is also what Windows shows while the window is inactive. A capture through Windows
+        // (PrintWindow) would include it, but gives a blank window whenever the display is off or locked
+        public static Task SaveScreenshotAsync(Window window, string path)
         {
             var content = (FrameworkElement)window.Content;
             var dpi = VisualTreeHelper.GetDpi(content);
-            var bitmap = new RenderTargetBitmap((int)Math.Ceiling(content.ActualWidth * dpi.DpiScaleX), (int)Math.Ceiling(content.ActualHeight * dpi.DpiScaleY),
+            var area = new Rect(0, 0, content.ActualWidth, content.ActualHeight);
+            var picture = new DrawingVisual();
+            using (var dc = picture.RenderOpen())
+            {
+                dc.DrawRectangle(window.TryFindResource("SolidBackgroundFillColorBaseBrush") as Brush ?? Brushes.Gray, null, area);
+                dc.DrawRectangle(new VisualBrush(content), null, area);
+            }
+            var bitmap = new RenderTargetBitmap((int)Math.Ceiling(area.Width * dpi.DpiScaleX), (int)Math.Ceiling(area.Height * dpi.DpiScaleY),
                 dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
-            bitmap.Render(content);
+            bitmap.Render(picture);
             var encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(bitmap));
             using var file = File.Create(path);
             encoder.Save(file);
+            return Task.CompletedTask;
         }
 
         // The nearest ScrollViewer above an element

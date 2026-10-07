@@ -48,13 +48,14 @@ namespace PDFManager.Harness
                 ["crash_ui"] = ("throw on the UI thread: App logs it, shows the error and keeps running", CrashOnUiThread),
                 ["theme_light"] = ("switch to the light theme with ThemeManager.Apply", ThemeLight),
                 ["theme_ui"] = ("switch to the light theme through Home's appearance choice", ThemeThroughHome),
-                ["nav_home"] = ("open the Home page", () => Open("navHome")),
-                ["nav_split"] = ("open the Split page", () => Open("navSplit")),
-                ["nav_reorder"] = ("open the Reorder page", () => Open("navReorder")),
+                ["theme_dark"] = ("switch to the dark theme with ThemeManager.Apply", ThemeDark),
                 ["screenshot"] = ("save what the window shows as a PNG next to the report", Screenshot),
                 ["sidebar_fits"] = ("every sidebar entry fits without scrolling at the default window size, all sections expanded", SidebarFits),
                 ["gc"] = ("force a full garbage collection", CollectGarbage),
             };
+            // nav_home, nav_split and so on: open that page, for screenshots
+            foreach (string page in new[] { "Home", "Merge", "Split", "Extract", "Reorder", "Rotate", "Metadata", "Watermark", "Unlock", "Protect", "PdfToImage", "ImagesToPdf", "Batch" })
+                _steps["nav_" + page.ToLowerInvariant()] = ($"open the {page} page", () => Open("nav" + page));
         }
 
         // Set by a step that writes to the error log on purpose
@@ -268,7 +269,7 @@ namespace PDFManager.Harness
         {
             await Ui.Idle();
             string path = _report.SiblingPath($"shot{++_screenshots}.png");
-            Ui.SaveScreenshot(_window, path);
+            await Ui.SaveScreenshotAsync(_window, path);
             _report.Log("screenshot: " + path);
         }
 
@@ -306,7 +307,14 @@ namespace PDFManager.Harness
         {
             ThemeManager.Apply(AppTheme.Light);
             await Ui.Idle();
-            _report.Check(!ThemeManager.IsDark, "the light theme is applied");
+            _report.Check(!ThemeManager.IsDark && System.Windows.Application.Current.ThemeMode == System.Windows.ThemeMode.Light, "the light theme is applied");
+        }
+
+        private async Task ThemeDark()
+        {
+            ThemeManager.Apply(AppTheme.Dark);
+            await Ui.Idle();
+            _report.Check(ThemeManager.IsDark && System.Windows.Application.Current.ThemeMode == System.Windows.ThemeMode.Dark, "the dark theme is applied");
         }
 
         private async Task ThemeThroughHome()

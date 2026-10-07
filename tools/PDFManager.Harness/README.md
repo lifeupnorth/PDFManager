@@ -54,8 +54,9 @@ A run fails when any check fails, the exit code isn't 0, or Windows logged a cra
 | `crash_ui` | Throw on the UI thread: App logs it, shows the error and keeps running |
 | `theme_light` | Switch to the light theme with `ThemeManager.Apply` |
 | `theme_ui` | Switch to the light theme through Home's appearance choice |
-| `nav_home`, `nav_split`, `nav_reorder` | Open that page |
-| `screenshot` | Save what the window shows (its WPF content, without the title bar) as `<report>-shotN.png` next to the report |
+| `theme_dark` | Switch to the dark theme with `ThemeManager.Apply` |
+| `nav_home`, `nav_merge`, `nav_split`, ... `nav_batch` | Open that page (every sidebar entry has one, named after it without spaces) |
+| `screenshot` | Save what the window shows (its WPF content, without the title bar) as `<report>-shotN.png` next to the report. Mica is drawn by Windows, so it shows as Fluent's plain base colour |
 | `gc` | Force a full garbage collection |
 | `idle` | Wait three seconds |
 

@@ -42,7 +42,7 @@ namespace PDFManager.Tests
             Assert.DoesNotContain(null, settings.CollapsedSections);
             Assert.NotNull(settings.BatchPresets);
             Assert.DoesNotContain(null, settings.BatchPresets);
-            Assert.Equal(AppTheme.Dark, settings.ThemeChoice);
+            Assert.Equal(AppTheme.System, settings.ThemeChoice);
         }
 
         [Fact]
@@ -69,7 +69,7 @@ namespace PDFManager.Tests
             Assert.False(sidebar.EditExpanded);
             var preset = Assert.Single(batch.Presets).Preset;
             Assert.Equal(("Weekly", "Rotate", "CONFIDENTIAL", "1", ""), (preset.Name, preset.Action, preset.WatermarkText, preset.PageSpec, preset.OutputFolder));
-            Assert.Equal(AppTheme.Dark, appearance.Theme);
+            Assert.Equal(AppTheme.System, appearance.Theme);
         }
 
         // Another window, or a test in another collection, can be reading the file just as it is

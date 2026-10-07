@@ -32,7 +32,7 @@ A Windows desktop app for everyday PDF jobs: merge, split, extract, reorder and 
 - Pick pages with lists like `1, 3, 5-7`, or by clicking page thumbnails; the two stay in sync.
 - Drag files and folders onto any tool's page.
 - Nothing is overwritten without asking, and a failed run leaves existing files untouched.
-- Light, dark, or follow the Windows setting.
+- Windows 11's Fluent look, the same as ScanManager's: Mica, the Windows accent colour, and light or dark following the Windows setting unless you pick one.
 
 Settings are kept in `%LOCALAPPDATA%\PDFManager\settings.json`. If something goes wrong, the details go to a log in `%LOCALAPPDATA%\PDFManager\logs`, which the error message points to; nothing is sent over the network.
 
@@ -96,7 +96,7 @@ Builds are unsigned until signing is configured; then `build.ps1` signs every ex
 | `ViewModels` | One view model per tool, plus `MainViewModel` (navigation) and `SidebarViewModel`. |
 | `Services` | The PDF work (`PdfService`, on [iText](https://itextpdf.com/)), page thumbnails and image export (`WindowsPageRenderer`, on Windows.Data.Pdf), dialogs, settings, the error log and crash reporting. |
 | `Base` | `ObservableObject` and `RelayCommand`, the small MVVM base. |
-| `Themes` | The dark and light colour dictionaries; `ThemeManager` switches between them. |
+| `App.xaml` | The look: WPF's Fluent theme plus the app's own few styles and icon glyphs. `ThemeManager` sets light, dark or the Windows setting. |
 | `PDFManager.Tests` | xUnit tests. |
 | `tools/PDFManager.Harness` | Drives the real exe through a .NET startup hook, for what unit tests can't reach. |
 | `installer` | Inno Setup script (`PDFManager.iss`), `build.ps1`, which builds the installers, and the code-signing scripts (`signing.ps1`, `sign.ps1`). |
