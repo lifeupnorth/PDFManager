@@ -2,7 +2,7 @@
 
 # PDF Manager
 
-A Windows desktop app for everyday PDF jobs: merge, split, extract, reorder and rotate pages, edit metadata, add a watermark, add or remove a password, convert between PDFs and images, and run any of these on many files at once. Everything happens on your computer; files are never uploaded anywhere.
+A Windows desktop app for everyday PDF jobs: merge, split, extract, reorder and rotate pages, edit metadata, add a watermark, add or remove a password, convert between PDFs and images, and run any of these on many files at once. Everything stays on your computer: files are processed locally, and nothing is uploaded anywhere.
 
 ![Reordering pages: page 7 moved two places earlier and still selected](docs/screenshots/reorder.png)
 
