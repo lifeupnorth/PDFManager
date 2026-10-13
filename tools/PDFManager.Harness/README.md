@@ -38,6 +38,7 @@ A run fails when any check fails, the exit code isn't 0, or Windows logged a cra
 | `smoke` (default) | `split_open,split_run,merge_open,merge_saveas,merge_run,rotate_flow,batch_flow,reorder_flow,sidebar_fits,theme_light` |
 | `exit` | `split_load,gc`. Before the fix in `WindowsPageRenderer`, this crashed in the Qualcomm graphics driver at exit. |
 | `crash` | `crash_ui,rotate_flow` |
+| `readme` | `theme_dark,demo_reorder,screenshot,demo_watermark,screenshot,theme_ui,screenshot`: the main README's screenshots. Copy `shot1`, `shot2` and `shot3` to `docs/screenshots` as `reorder.png`, `watermark.png` and `home-light.png`. The sample report is written to `Lakeside Garden` in Public Documents, so the paths on screen show no user name. |
 
 | Step | What it does |
 |---|---|
@@ -51,12 +52,14 @@ A run fails when any check fails, the exit code isn't 0, or Windows logged a cra
 | `batch_flow` | Batch: pick both PDFs in the Open dialog, run, answer the summary |
 | `reorder_flow` | Reorder: Open, press page 4's thumbnail and Move to start, overwrite No, then Yes, then the success prompt; checks the saved page order |
 | `sidebar_fits` | Every sidebar entry fits without scrolling at the default 1100x720, all sections expanded. Logs the room left: a new tool needs about 32 px |
+| `demo_reorder` | Reorder: load the sample report, select page 7 and move it two places earlier |
+| `demo_watermark` | Watermark: load the sample report and type DRAFT |
 | `crash_ui` | Throw on the UI thread: App logs it, shows the error and keeps running |
 | `theme_light` | Switch to the light theme with `ThemeManager.Apply` |
 | `theme_ui` | Switch to the light theme through Home's appearance choice |
 | `theme_dark` | Switch to the dark theme with `ThemeManager.Apply` |
 | `nav_home`, `nav_merge`, `nav_split`, ... `nav_batch` | Open that page (every sidebar entry has one, named after it without spaces) |
-| `screenshot` | Save what the window shows (its WPF content, without the title bar) as `<report>-shotN.png` next to the report. Mica is drawn by Windows, so it shows as Fluent's plain base colour |
+| `screenshot` | Save what the window shows (its WPF content, without the title bar) as `<report>-shotN.png` next to the report. Mica is drawn by Windows, so it shows as Fluent's plain base color |
 | `gc` | Force a full garbage collection |
 | `idle` | Wait three seconds |
 

@@ -50,6 +50,8 @@ namespace PDFManager.Harness
                 ["theme_ui"] = ("switch to the light theme through Home's appearance choice", ThemeThroughHome),
                 ["theme_dark"] = ("switch to the dark theme with ThemeManager.Apply", ThemeDark),
                 ["screenshot"] = ("save what the window shows as a PNG next to the report", Screenshot),
+                ["demo_reorder"] = ("Reorder: load the sample report, select page 7 and move it two places earlier, for a screenshot", DemoReorder),
+                ["demo_watermark"] = ("Watermark: load the sample report and type DRAFT, for a screenshot", DemoWatermark),
                 ["sidebar_fits"] = ("every sidebar entry fits without scrolling at the default window size, all sections expanded", SidebarFits),
                 ["gc"] = ("force a full garbage collection", CollectGarbage),
             };
@@ -261,6 +263,47 @@ namespace PDFManager.Harness
             await _dialogs.AllHandled();
             await WaitFor(() => !_vm.Reorder.IsBusy, "Reorder: idle again");
             _report.Check(Pdfs.PageWidths(output).SequenceEqual(new float[] { 303, 300, 301, 302 }), "Reorder: Yes writes the pages in the new order");
+        }
+
+        // --- README screenshots ---
+
+        // The sample report lives in Public Documents, so the paths in a screenshot show no user name
+        private string SampleReport()
+        {
+            string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), "Lakeside Garden");
+            Directory.CreateDirectory(folder);
+            string path = Path.Combine(folder, "Season report 2026.pdf");
+            return File.Exists(path) ? path : SamplePdf.Create(path);
+        }
+
+        private async Task DefaultWindowSize()
+        {
+            _window.WindowState = System.Windows.WindowState.Normal;
+            _window.Width = 1100;
+            _window.Height = 720;
+            await Ui.Idle();
+        }
+
+        private async Task DemoReorder()
+        {
+            await DefaultWindowSize();
+            await Open("navReorder");
+            await _vm.Reorder.UpdateFileAsync(SampleReport());
+            await _vm.Reorder.Thumbnails.Loading;
+            _vm.Reorder.Thumbnails.SetSelection(new[] { 7 });
+            _vm.Reorder.MoveEarlier();
+            _vm.Reorder.MoveEarlier();
+            await WaitFor(() => _vm.Reorder.OrderSummary == "New order: 1-4, 7, 5-6, 8", "Reorder: page 7 moved two places earlier");
+        }
+
+        private async Task DemoWatermark()
+        {
+            await DefaultWindowSize();
+            await Open("navWatermark");
+            await _vm.Watermark.UpdateFileAsync(SampleReport());
+            await _vm.Watermark.Thumbnails.Loading;
+            _vm.Watermark.WatermarkText = "DRAFT";
+            await WaitFor(() => _vm.Watermark.Thumbnails.Pages.Count == 8, "Watermark: 8 page previews rendered");
         }
 
         // --- App-wide ---

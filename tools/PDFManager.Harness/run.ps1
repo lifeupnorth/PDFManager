@@ -11,7 +11,7 @@ Settings and error logs go to a temp folder; the user's own are never read or wr
 The app's window is on screen while a run lasts. Don't use the mouse or keyboard meanwhile.
 
 .PARAMETER Steps
-Comma-separated steps (see README.md), or a preset: smoke (default), exit or crash.
+Comma-separated steps (see README.md), or a preset: smoke (default), exit, crash or readme.
 
 .PARAMETER Times
 How many runs. Use 3 or more when looking for a crash that does not happen every time.
@@ -41,6 +41,8 @@ $presets = @{
     exit  = "split_load,gc"
     # An exception on the UI thread, then a tool flow to show the app kept working
     crash = "crash_ui,rotate_flow"
+    # The README's screenshots, in docs/screenshots: Reorder and Watermark in dark, Home in light
+    readme = "theme_dark,demo_reorder,screenshot,demo_watermark,screenshot,theme_ui,screenshot"
 }
 $stepList = ($Steps -join ",")
 if ($presets.ContainsKey($stepList)) { $stepList = $presets[$stepList] }
