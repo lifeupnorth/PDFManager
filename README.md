@@ -106,3 +106,9 @@ Builds are unsigned until signing is configured; then `build.ps1` signs every ex
 | `PDFManager.Tests` | xUnit tests. |
 | `tools/PDFManager.Harness` | Drives the real exe through a .NET startup hook, for what unit tests can't reach. |
 | `installer` | Inno Setup script (`PDFManager.iss`), `build.ps1`, which builds the installers, and the code-signing scripts (`signing.ps1`, `sign.ps1`). |
+
+## License
+
+Copyright (C) 2026 Alexey Kuprienko
+
+PDF Manager is free software under the [GNU Affero General Public License v3.0](LICENSE): you can use, share and change it, and anything you distribute that is based on it must be shared under the same license, with its source. It uses [iText](https://itextpdf.com/), which is itself licensed under the AGPL.
