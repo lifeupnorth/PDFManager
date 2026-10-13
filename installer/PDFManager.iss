@@ -16,7 +16,7 @@
 #define AppUrl "https://github.com/lifeupnorth/PDFManager"
 
 [Setup]
-; Never change AppId: Windows uses it to recognise upgrades and the uninstall entry.
+; Never change AppId: Windows uses it to recognize upgrades and the uninstall entry.
 AppId={{8A7629B7-AB5E-4838-A0CD-AB2EB090278D}
 AppName={#AppName}
 AppVersion={#AppVersion}
@@ -49,6 +49,8 @@ CloseApplications=yes
 RestartApplications=no
 
 WizardStyle=modern
+; The license page: the AGPL-3.0 text, which the user must accept to install.
+LicenseFile=..\LICENSE
 SetupIconFile=..\app.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
@@ -69,6 +71,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
