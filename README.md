@@ -32,7 +32,7 @@ A Windows desktop app for everyday PDF jobs: merge, split, extract, reorder and 
 - Pick pages with lists like `1, 3, 5-7`, or by clicking page thumbnails; the two stay in sync.
 - Drag files and folders onto any tool's page.
 - Nothing is overwritten without asking, and a failed run leaves existing files untouched.
-- Windows 11's Fluent look, the same as ScanManager's: Mica, the Windows accent colour, and light or dark following the Windows setting unless you pick one.
+- Windows 11's Fluent look, the same as ScanManager's: Mica, the Windows accent color, and light or dark following the Windows setting unless you pick one.
 
 Settings are kept in `%LOCALAPPDATA%\PDFManager\settings.json`. If something goes wrong, the details go to a log in `%LOCALAPPDATA%\PDFManager\logs`, which the error message points to; nothing is sent over the network.
 
@@ -48,7 +48,7 @@ The installer includes everything the app needs (no separate .NET install). It i
 ## Requirements
 
 - Windows 10 version 1809 or later, or Windows 11
-- [.NET 9 SDK](https://dotnet.microsoft.com/download) to build
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) to build
 
 ## Build and run
 
